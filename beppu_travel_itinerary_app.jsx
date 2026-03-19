@@ -1,6 +1,19 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
+import {
+  firebaseEnabled,
+  resetPassword,
+  savePlans,
+  signInWithEmail,
+  signInWithGoogle,
+  signOutUser,
+  signUpWithEmail,
+  subscribeToAuthState,
+  subscribeToPlans,
+  subscribeToPublicPlanByShareId,
+} from "./src/firebase.js";
 
 const beppuStops = [
   {
@@ -253,6 +266,75 @@ const categoryOptions = [
   { value: "買い物", emoji: "🛍️" },
   { value: "移動", emoji: "🚌" },
 ];
+
+const cleanCategoryOptions = [
+  { value: "出発", emoji: "🚉" },
+  { value: "観光", emoji: "🌋" },
+  { value: "地獄めぐり", emoji: "♨️" },
+  { value: "昼食", emoji: "🍽️" },
+  { value: "食事", emoji: "🍴" },
+  { value: "カフェ", emoji: "☕" },
+  { value: "宿泊", emoji: "🛏️" },
+  { value: "休憩", emoji: "🫖" },
+  { value: "移動", emoji: "🚗" },
+];
+
+const categoryAliases = {
+  出発: "出発",
+  "蜃ｺ逋ｺ": "出発",
+  "陷・ｽｺ騾具ｽｺ": "出発",
+  観光: "観光",
+  "隕ｳ蜈・": "観光",
+  地獄めぐり: "地獄めぐり",
+  "蝨ｰ迯・ａ縺舌ｊ": "地獄めぐり",
+  昼食: "昼食",
+  "譏ｼ鬟・": "昼食",
+  食事: "食事",
+  "鬟滉ｺ・": "食事",
+  カフェ: "カフェ",
+  "繧ｫ繝輔ぉ": "カフェ",
+  宿泊: "宿泊",
+  "螳ｿ豕・": "宿泊",
+  休憩: "休憩",
+  "雋ｷ縺・黄": "休憩",
+  移動: "移動",
+  "遘ｻ蜍・": "移動",
+};
+
+const stableCategoryOptions = [
+  { value: "\u51fa\u767a", emoji: "\ud83d\ude89" },
+  { value: "\u89b3\u5149", emoji: "\ud83c\udf0b" },
+  { value: "\u5730\u7344\u3081\u3050\u308a", emoji: "\u2668\ufe0f" },
+  { value: "\u663c\u98df", emoji: "\ud83c\udf7d\ufe0f" },
+  { value: "\u98df\u4e8b", emoji: "\ud83c\udf74" },
+  { value: "\u30ab\u30d5\u30a7", emoji: "\u2615" },
+  { value: "\u5bbf\u6cca", emoji: "\ud83d\udecf\ufe0f" },
+  { value: "\u4f11\u61a9", emoji: "\ud83e\uded6" },
+  { value: "\u79fb\u52d5", emoji: "\ud83d\ude97" },
+];
+
+const stableCategoryAliases = {
+  "\u51fa\u767a": "\u51fa\u767a",
+  "蜃ｺ逋ｺ": "\u51fa\u767a",
+  "陷・ｽｺ騾具ｽｺ": "\u51fa\u767a",
+  "\u89b3\u5149": "\u89b3\u5149",
+  "隕ｳ蜈・": "\u89b3\u5149",
+  "\u5730\u7344\u3081\u3050\u308a": "\u5730\u7344\u3081\u3050\u308a",
+  "蝨ｰ迯・ａ縺舌ｊ": "\u5730\u7344\u3081\u3050\u308a",
+  "\u663c\u98df": "\u663c\u98df",
+  "譏ｼ鬟・": "\u663c\u98df",
+  "\u98df\u4e8b": "\u98df\u4e8b",
+  "鬟滉ｺ・": "\u98df\u4e8b",
+  "\u30ab\u30d5\u30a7": "\u30ab\u30d5\u30a7",
+  "繧ｫ繝輔ぉ": "\u30ab\u30d5\u30a7",
+  "\u5bbf\u6cca": "\u5bbf\u6cca",
+  "螳ｿ豕・": "\u5bbf\u6cca",
+  "\u4f11\u61a9": "\u4f11\u61a9",
+  "雋ｷ縺・黄": "\u4f11\u61a9",
+  "莨第・": "\u4f11\u61a9",
+  "\u79fb\u52d5": "\u79fb\u52d5",
+  "遘ｻ蜍・": "\u79fb\u52d5",
+};
 
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap');
@@ -929,32 +1011,302 @@ body {
   color: var(--text2);
   font-weight: 500;
 }
+.auth-screen {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(232,92,58,0.16), transparent 36%),
+    linear-gradient(180deg, #fcfaf7 0%, #f3efe8 100%);
+}
+.auth-card {
+  width: min(100%, 420px);
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(231,229,223,0.9);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(28,25,23,0.12);
+  backdrop-filter: blur(12px);
+}
+.auth-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.auth-title {
+  margin-top: 16px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.auth-copy {
+  margin-top: 10px;
+  color: var(--text2);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.auth-form {
+  margin-top: 22px;
+  display: grid;
+  gap: 12px;
+}
+.auth-field {
+  display: grid;
+  gap: 6px;
+}
+.auth-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.auth-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  padding: 13px 14px;
+  font: inherit;
+}
+.auth-input:focus {
+  outline: 2px solid rgba(232,92,58,0.18);
+  border-color: rgba(232,92,58,0.45);
+}
+.auth-submit,
+.auth-google,
+.auth-toggle {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.auth-submit,
+.auth-google {
+  padding: 13px 14px;
+  font-weight: 700;
+}
+.auth-submit {
+  background: var(--accent);
+  color: #fff;
+}
+.auth-google {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.auth-toggle {
+  background: transparent;
+  color: var(--accent);
+  padding: 4px 0 0;
+  text-align: left;
+  font-weight: 700;
+}
+.auth-error {
+  min-height: 18px;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 600;
+}
+.auth-note {
+  margin-top: 18px;
+  color: var(--text2);
+  font-size: 11px;
+  line-height: 1.6;
+  display: none;
+}
+.settings-account {
+  display: grid;
+  gap: 8px;
+}
+.settings-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+}
+.settings-account-main {
+  min-width: 0;
+}
+.settings-account-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-account-sub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text2);
+  font-weight: 500;
+}
 `;
 
-export default function App() {
-  const [plans, setPlans] = useState(() => initialPlans);
+function EditorApp() {
+  const [plans, setPlans] = useState(() => initialPlans.map(hydratePlanDataFixed));
   const [selectedPlanId, setSelectedPlanId] = useState(() => initialPlans[0].id);
   const [selId, setSelId] = useState("jigokuMushi");
   const [sheet, setSheet] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [editorMode, setEditorMode] = useState(null);
-  const [draft, setDraft] = useState(() => createStopDraft());
+  const [draft, setDraft] = useState(() => createStopDraftFixed());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  const [pendingCreatePlanId, setPendingCreatePlanId] = useState(null);
   const [planDraft, setPlanDraft] = useState(() => createPlanDraft());
   const [geoState, setGeoState] = useState({ loading: false, message: "" });
   const [searchResults, setSearchResults] = useState([]);
+  const [authUser, setAuthUser] = useState(null);
+  const [authReady, setAuthReady] = useState(!firebaseEnabled);
+  const [authMode, setAuthMode] = useState("signin");
+  const [authForm, setAuthForm] = useState({ email: "", password: "" });
+  const [authPending, setAuthPending] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [firebaseStatus, setFirebaseStatus] = useState(() => ({
+    loading: firebaseEnabled,
+    error: "",
+  }));
   const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) || plans[0];
   const stopsData = selectedPlan?.stops || [];
   const spotMap = useMemo(() => Object.fromEntries(stopsData.map(s => [s.id, s])), [stopsData]);
   const geocodeCache = React.useRef(new Map());
   const hasSyncedInitialSelection = React.useRef(false);
+  const hasLoadedRemotePlans = React.useRef(!firebaseEnabled);
+  const lastSyncedPlansJson = React.useRef("");
   const scrollRef = React.useRef(null);
   const now = useNowClock();
   const currentStopId = useMemo(() => getCurrentStopId(now, stopsData, selectedPlan?.startDate), [now, stopsData, selectedPlan?.startDate]);
   const currentStop = currentStopId ? spotMap[currentStopId] : null;
   const sel = spotMap[selId] || stopsData[0] || null;
   const tripDateLabel = useMemo(() => formatTripDateRange(selectedPlan), [selectedPlan]);
+
+  useEffect(() => {
+    if (!firebaseEnabled) {
+      return undefined;
+    }
+
+    return subscribeToAuthState((user) => {
+      setAuthUser(user);
+      setAuthReady(true);
+      setAuthPending(false);
+      setAuthError("");
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!firebaseEnabled || !authUser) {
+      hasLoadedRemotePlans.current = !firebaseEnabled;
+      lastSyncedPlansJson.current = "";
+      setPlans([]);
+      setSelectedPlanId("");
+      setFirebaseStatus({
+        loading: firebaseEnabled && authReady && !authUser,
+        error: "",
+      });
+      return undefined;
+    }
+
+    const unsubscribe = subscribeToPlans(
+      authUser.uid,
+      authUser.email || "",
+      (remotePlans) => {
+        hasLoadedRemotePlans.current = true;
+        const hydratedPlans = Array.isArray(remotePlans) && remotePlans.length > 0
+          ? remotePlans.map(hydratePlanDataFixed)
+          : initialPlans.map(hydratePlanDataFixed);
+        const remoteJson = JSON.stringify(hydratedPlans);
+        lastSyncedPlansJson.current = remoteJson;
+        setPlans((prev) => {
+          if (!pendingCreatePlanId) {
+            return hydratedPlans;
+          }
+
+          const pendingPlan = prev.find((plan) => plan.id === pendingCreatePlanId);
+          const alreadySynced = hydratedPlans.some((plan) => plan.id === pendingCreatePlanId);
+          if (!pendingPlan || alreadySynced) {
+            return hydratedPlans;
+          }
+
+          return [...hydratedPlans, pendingPlan];
+        });
+        setSelectedPlanId((prev) => {
+          if (pendingCreatePlanId) {
+            return pendingCreatePlanId;
+          }
+          return hydratedPlans.some((plan) => plan.id === prev) ? prev : (hydratedPlans[0]?.id || "");
+        });
+
+        setFirebaseStatus({ loading: false, error: "" });
+      },
+      () => {
+        hasLoadedRemotePlans.current = true;
+        setFirebaseStatus({ loading: false, error: "Firebase sync failed" });
+      },
+    );
+
+    return unsubscribe;
+  }, [authReady, authUser, pendingCreatePlanId]);
+
+  useEffect(() => {
+    if (!firebaseEnabled || !authUser || !hasLoadedRemotePlans.current) {
+      return undefined;
+    }
+
+    const currentJson = JSON.stringify(plans);
+    if (currentJson === lastSyncedPlansJson.current) {
+      return undefined;
+    }
+
+    let active = true;
+
+    savePlans(authUser.uid, plans)
+      .then(() => {
+        if (!active) return;
+        lastSyncedPlansJson.current = currentJson;
+        setFirebaseStatus((prev) => ({ ...prev, error: "" }));
+      })
+      .catch(() => {
+        if (!active) return;
+        setFirebaseStatus((prev) => ({ ...prev, error: "Firebase sync failed" }));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authUser, plans]);
 
   React.useEffect(() => {
     if (!stopsData.find((stop) => stop.id === selId) && stopsData[0]) {
@@ -979,6 +1331,92 @@ export default function App() {
     hasSyncedInitialSelection.current = false;
   }, [selectedPlanId]);
 
+  React.useEffect(() => {
+    if (!pendingCreatePlanId || pendingCreatePlanId !== selectedPlanId) return;
+
+    setDraft({
+      ...createStopDraftFixed(null, 1),
+      category: "蜃ｺ逋ｺ",
+      emoji: getCategoryEmojiFixed("\u51fa\u767a"),
+      time: "09:00",
+    });
+    setDraft((prev) => ({ ...prev, category: "\u51fa\u767a", emoji: getCategoryEmojiFixed("\u51fa\u767a") }));
+    setSelId("");
+    setDraft((prev) => ({ ...prev, category: "\u51fa\u767a", emoji: getCategoryEmojiFixed("\u51fa\u767a") }));
+    setEditorMode("create");
+    setPendingCreatePlanId(null);
+  }, [pendingCreatePlanId, selectedPlanId]);
+
+  function handleAuthInput(key, value) {
+    setAuthForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleEmailAuth(event) {
+    event.preventDefault();
+    if (!firebaseEnabled) {
+      setAuthError("Firebase is not configured");
+      return;
+    }
+
+    const email = authForm.email.trim();
+    const password = authForm.password;
+    if (!email || !password) {
+      setAuthError("メールアドレスとパスワードを入力してください");
+      return;
+    }
+
+    try {
+      setAuthPending(true);
+      setAuthError("");
+      if (authMode === "signup") {
+        await signUpWithEmail(email, password);
+      } else {
+        await signInWithEmail(email, password);
+      }
+    } catch (error) {
+      setAuthPending(false);
+      setAuthError(mapAuthError(error));
+    }
+  }
+
+  async function handleGoogleAuth() {
+    try {
+      setAuthPending(true);
+      setAuthError("");
+      await signInWithGoogle();
+    } catch (error) {
+      setAuthPending(false);
+      setAuthError(mapAuthError(error));
+    }
+  }
+
+  async function handlePasswordReset() {
+    const email = authForm.email.trim();
+    if (!email) {
+      setAuthError("パスワード再設定メールを送るためにメールアドレスを入力してください");
+      return;
+    }
+
+    try {
+      setAuthPending(true);
+      setAuthError("");
+      await resetPassword(email);
+      setAuthError("パスワード再設定メールを送信しました。受信トレイを確認してください。");
+    } catch (error) {
+      setAuthError(mapAuthError(error));
+    } finally {
+      setAuthPending(false);
+    }
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOutUser();
+    } catch (_error) {
+      setFirebaseStatus((prev) => ({ ...prev, error: "Sign out failed" }));
+    }
+  }
+
   function switchPlan(planId) {
     const nextPlan = plans.find((plan) => plan.id === planId);
     if (!nextPlan) return;
@@ -1002,12 +1440,23 @@ export default function App() {
       scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }
   }
+  /*
+  function openCreate() {
+    setSheet(false);
+    setPendingCreatePlanId(normalizedPlan.id);
+      category: "出発",
+      emoji: getCategoryEmoji("出発"),
+      time: "09:00",
+    });
+    setPendingCreatePlanId(normalizedPlan.id);
+  }
+  */
   function openCreate() {
     setSheet(false);
     setDraft({
-      ...createStopDraft(null, 1),
-      category: "出発",
-      emoji: getCategoryEmoji("出発"),
+      ...createStopDraftFixed(null, 1),
+      category: "蜃ｺ逋ｺ",
+      emoji: getCategoryEmojiFixed("\u51fa\u767a"),
       time: "09:00",
     });
     setEditorMode("create");
@@ -1021,7 +1470,7 @@ export default function App() {
     const stop = spotMap[id];
     if (!stop) return;
     setSheet(false);
-    setDraft(createStopDraft(stop));
+    setDraft(createStopDraftFixed(stop));
     setEditorMode("edit");
   }
   function closeEditor() {
@@ -1038,7 +1487,7 @@ export default function App() {
         return {
           ...prev,
           category: value,
-          emoji: prev.emojiAuto ? getCategoryEmoji(value) : prev.emoji,
+          emoji: prev.emojiAuto ? getCategoryEmojiFixed(value) : prev.emoji,
         };
       }
       if (key === "emoji") {
@@ -1106,7 +1555,7 @@ export default function App() {
     setSearchResults([]);
   }
   function saveDraft() {
-    const normalized = normalizeStopDraft(draft, editorMode === "edit" ? spotMap[draft.id] : null);
+    const normalized = normalizeStopDraftFixed(draft, editorMode === "edit" ? spotMap[draft.id] : null);
     setPlans((prev) =>
       prev.map((plan) =>
         plan.id !== selectedPlanId
@@ -1137,18 +1586,87 @@ export default function App() {
     setSheet(false);
     setEditorMode(null);
   }
+  /*
   function savePlanDraft() {
-    const normalizedPlan = normalizePlanDraft(planDraft);
+    const normalizedPlan = {
+      ...normalizePlanDraft(planDraft),
+      ownerEmail: (authUser?.email || "").toLowerCase(),
+      editorEmails: [],
+    };
     setPlans((prev) => [...prev, normalizedPlan]);
     setSelectedPlanId(normalizedPlan.id);
     setPlanEditorOpen(false);
-    setDraft({
-      ...createStopDraft(null, 1),
+    setPendingCreatePlanId(normalizedPlan.id);
       category: "出発",
       emoji: getCategoryEmoji("出発"),
       time: "09:00",
-    });
-    setEditorMode("create");
+    //
+  }
+
+  */
+  function savePlanDraft() {
+    const normalizedPlan = {
+      ...normalizePlanDraft(planDraft),
+      ownerEmail: (authUser?.email || "").toLowerCase(),
+      editorEmails: [],
+    };
+    setPlans((prev) => [...prev, normalizedPlan]);
+    setSelectedPlanId(normalizedPlan.id);
+    setPlanEditorOpen(false);
+    setPendingCreatePlanId(normalizedPlan.id);
+  }
+
+  if (!firebaseEnabled) {
+    return (
+      <>
+        <style>{css}</style>
+        <AuthScreen
+          authMode={authMode}
+          authForm={authForm}
+          authPending={authPending}
+          authError="Firebase 設定が見つかりません。.env.local を確認してください。"
+          onChangeMode={setAuthMode}
+          onChangeField={handleAuthInput}
+          onSubmit={handleEmailAuth}
+          onGoogle={handleGoogleAuth}
+          onResetPassword={handlePasswordReset}
+        />
+      </>
+    );
+  }
+
+  if (!authReady) {
+    return (
+      <>
+        <style>{css}</style>
+        <div className="auth-screen">
+          <div className="auth-card">
+            <div className="auth-badge">TravelPlanner</div>
+            <div className="auth-title">認証状態を確認中です</div>
+            <div className="auth-copy">Firebase Authentication の初期化が終わるまで少し待ってください。</div>
+            </div>
+        </div>
+      </>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <>
+        <style>{css}</style>
+        <AuthScreen
+          authMode={authMode}
+          authForm={authForm}
+          authPending={authPending}
+          authError={authError}
+          onChangeMode={setAuthMode}
+          onChangeField={handleAuthInput}
+          onSubmit={handleEmailAuth}
+          onGoogle={handleGoogleAuth}
+          onResetPassword={handlePasswordReset}
+        />
+      </>
+    );
   }
 
   return (
@@ -1215,19 +1733,183 @@ export default function App() {
         />
       )}
       {settingsOpen && (
-        <SettingsSheet
+        <PlannerSettingsSheet
           plans={plans}
+          selectedPlan={selectedPlan}
           selectedPlanId={selectedPlanId}
+          authUser={authUser}
+          firebaseStatus={firebaseStatus}
+          publicShareUrl={selectedPlan?.shareId ? `${window.location.origin}${window.location.pathname}#/share/${selectedPlan.shareId}` : ""}
           onClose={() => setSettingsOpen(false)}
           onSelectPlan={switchPlan}
           onCreatePlan={openPlanCreate}
+          onSignOut={handleSignOut}
+          onPublishedChange={(nextPublished) => setPlans((prev) => prev.map((plan) => plan.id !== selectedPlanId ? plan : { ...plan, published: nextPublished }))}
+          onRegenerateShareLink={() => setPlans((prev) => prev.map((plan) => plan.id !== selectedPlanId ? plan : { ...plan, shareId: createShareId() }))}
+          onAddEditorEmail={(editorEmail) => setPlans((prev) => prev.map((plan) => plan.id !== selectedPlanId ? plan : { ...plan, editorEmails: [...new Set([...(plan.editorEmails || []), editorEmail.trim().toLowerCase()])] }))}
+          onRemoveEditorEmail={(editorEmail) => setPlans((prev) => prev.map((plan) => plan.id !== selectedPlanId ? plan : { ...plan, editorEmails: (plan.editorEmails || []).filter((email) => email !== editorEmail) }))}
         />
       )}
     </>
   );
 }
 
-function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onOpen, onFocusStop, onCreateStop, onToggleSchedule, scheduleOpen, sel }) {
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<EditorApp />} />
+      <Route path="/share/:shareId" element={<ShareApp />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function ShareApp() {
+  const { shareId = "" } = useParams();
+  const [plan, setPlan] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selId, setSelId] = useState("");
+  const [sheet, setSheet] = useState(false);
+  const [editHelpOpen, setEditHelpOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const scrollRef = React.useRef(null);
+  const hasSyncedInitialSelection = React.useRef(false);
+  const now = useNowClock();
+  const stopsData = plan?.stops || [];
+  const spotMap = useMemo(() => Object.fromEntries(stopsData.map((stop) => [stop.id, stop])), [stopsData]);
+  const currentStopId = useMemo(() => getCurrentStopId(now, stopsData, plan?.startDate), [now, stopsData, plan?.startDate]);
+  const currentStop = currentStopId ? spotMap[currentStopId] : null;
+  const sel = spotMap[selId] || stopsData[0] || null;
+  const tripDateLabel = useMemo(() => formatTripDateRange(plan), [plan]);
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+
+    return subscribeToPublicPlanByShareId(
+      shareId,
+      (nextPlan) => {
+        setPlan(nextPlan ? hydratePlanDataFixed(nextPlan) : null);
+        setLoading(false);
+      },
+      () => {
+        setError("公開プランの読み込みに失敗しました");
+        setLoading(false);
+      },
+    );
+  }, [shareId]);
+
+  useEffect(() => {
+    if (!stopsData.find((stop) => stop.id === selId) && stopsData[0]) {
+      setSelId(stopsData[0].id);
+      hasSyncedInitialSelection.current = false;
+    }
+  }, [selId, stopsData]);
+
+  useEffect(() => {
+    if (hasSyncedInitialSelection.current) return;
+    if (currentStopId && spotMap[currentStopId]) {
+      setSelId(currentStopId);
+      hasSyncedInitialSelection.current = true;
+      return;
+    }
+    if (stopsData[0]) {
+      hasSyncedInitialSelection.current = true;
+    }
+  }, [currentStopId, spotMap, stopsData]);
+
+  function open(id) {
+    if (!id) return;
+    setSelId(id);
+    setSheet(true);
+  }
+
+  function focusOnMap(id) {
+    setSelId(id);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  if (loading) {
+    return <StatusScreen title="公開プランを読み込んでいます" copy="共有リンクから旅程データを取得しています。" />;
+  }
+
+  if (error) {
+    return <StatusScreen title="公開プランを読み込めません" copy={error} />;
+  }
+
+  if (!plan) {
+    return <StatusScreen title="公開プランが見つかりません" copy="リンクが無効か、公開設定がオフになっています。" />;
+  }
+
+  return (
+    <>
+      <style>{css}</style>
+      <div className="shell">
+        <div className="hdr">
+          <div className="hdr-icon">{plan?.icon || "🗺️"}</div>
+          <div>
+            <div className="hdr-title">{plan?.name || "旅行プラン"}</div>
+            <div className="hdr-sub">{plan?.description || "公開中の旅行プランです"}</div>
+            <div className="hdr-live">
+              {currentStop
+                ? `現在時刻の予定: ${formatStopDay(currentStop)} ${currentStop.time} ${currentStop.name}`
+                : "現在時刻に該当する予定はありません"}
+            </div>
+          </div>
+          <div className="hdr-side">
+            <div className="hdr-pill">{tripDateLabel || "--/--"}</div>
+          </div>
+        </div>
+
+        <div className="scroll" ref={scrollRef}>
+          <MapView
+            planId={plan.id}
+            stopsData={stopsData}
+            spotMap={spotMap}
+            selId={selId}
+            currentStopId={currentStopId}
+            onPick={setSelId}
+            onOpen={open}
+            onFocusStop={focusOnMap}
+            onCreateStop={() => {}}
+            onToggleSchedule={() => setScheduleOpen((prev) => !prev)}
+            scheduleOpen={scheduleOpen}
+            sel={sel}
+            canEdit={false}
+          />
+        </div>
+      </div>
+
+      {sheet && sel ? <Sheet spot={sel} onClose={() => setSheet(false)} onEdit={() => setEditHelpOpen(true)} canEdit={true} /> : null}
+      {editHelpOpen ? (
+        <ShareEditHelpSheet
+          ownerEmail={plan?.ownerEmail || ""}
+          onClose={() => setEditHelpOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function StatusScreen({ title, copy }) {
+  return (
+    <>
+      <style>{css}</style>
+      <div className="auth-screen">
+        <div className="auth-card">
+          <div className="auth-badge">TravelPlanner</div>
+          <div className="auth-title">{title}</div>
+          <div className="auth-copy">{copy}</div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onOpen, onFocusStop, onCreateStop, onToggleSchedule, scheduleOpen, sel, canEdit = true }) {
   if (!sel || stopsData.length === 0) {
     return (
       <div className="map-wrap">
@@ -1237,7 +1919,7 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
             <div className="sel-name">最初の予定を追加してください</div>
             <div className="sel-short">旅行プランを作成したので、まずは出発地点を登録します。</div>
           </div>
-          <button className="sel-open" onClick={onCreateStop}>追加</button>
+          {canEdit ? <button className="sel-open" onClick={onCreateStop}>追加</button> : null}
         </div>
       </div>
     );
@@ -1344,11 +2026,13 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
           <div className="schedule-toggle-mark">{scheduleOpen ? "▾" : "▸"}</div>
         </button>
         <div className="schedule-body">
-          <div className="schedule-actions">
+          {canEdit ? (
+            <div className="schedule-actions">
             <button className="schedule-action primary" onClick={onCreateStop}>
               ＋予定を追加
             </button>
           </div>
+          ) : null}
         </div>
         {scheduleOpen ? (
           <div className="schedule-body">
@@ -1382,7 +2066,7 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
   );
 }
 
-function Sheet({ spot, onClose, onEdit }) {
+function Sheet({ spot, onClose, onEdit, canEdit = true }) {
   return (
     <div className="backdrop" onClick={onClose}>
       <div className="sheet" onClick={e => e.stopPropagation()}>
@@ -1404,6 +2088,38 @@ function Sheet({ spot, onClose, onEdit }) {
           <a href={spot.mapUrl} target="_blank" rel="noreferrer" className="btn-a primary">🗺 マップ</a>
           <button className="btn-a secondary" onClick={onEdit}>✏️ 編集</button>
           <a href={spot.photoUrl} target="_blank" rel="noreferrer" className="btn-a secondary">🔗 リンク</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShareEditHelpSheet({ ownerEmail, onClose }) {
+  return (
+    <div className="backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        <div className="sheet-top">
+          <div className="sheet-icon" style={{ background: "#fff2ee" }}>✏️</div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="sheet-tag">編集するには</div>
+            <div className="sheet-name">編集権限が必要です</div>
+          </div>
+          <button className="sheet-x" onClick={onClose}>✕</button>
+        </div>
+        <div className="sheet-box">
+          <div className="sheet-box-lbl">手順</div>
+          <div className="sheet-detail">
+            1. このアプリでサインインしてください。
+            <br />
+            2. サインイン後のメールアドレスを製作者に伝えてください。
+            <br />
+            3. 製作者がそのメールアドレスを編集者として追加すると、編集できるようになります。
+          </div>
+        </div>
+        <div className="sheet-btns">
+          <Link className="btn-a primary" to="/">サインイン</Link>
+          <button className="btn-a secondary" onClick={onClose}>閉じる</button>
         </div>
       </div>
     </div>
@@ -1451,7 +2167,7 @@ function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDele
             <div className="editor-field">
               <label>カテゴリ</label>
               <select className="editor-input" value={draft.category} onChange={(e) => onChange("category", e.target.value)}>
-                {categoryOptions.map((option) => (
+                {stableCategoryOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.value}</option>
                 ))}
               </select>
@@ -1555,7 +2271,7 @@ function PlanEditorSheet({ draft, onChange, onClose, onSave }) {
   );
 }
 
-function SettingsSheet({ plans, selectedPlanId, onClose, onSelectPlan, onCreatePlan }) {
+function SettingsSheet({ plans, selectedPlanId, authUser, firebaseStatus, onClose, onSelectPlan, onCreatePlan, onSignOut }) {
   return (
     <div className="editor-backdrop settings-backdrop" onClick={onClose}>
       <div className="editor overlay-panel" onClick={(e) => e.stopPropagation()}>
@@ -1564,6 +2280,22 @@ function SettingsSheet({ plans, selectedPlanId, onClose, onSelectPlan, onCreateP
           <button className="editor-close" onClick={onClose}>✕</button>
         </div>
         <div className="editor-grid">
+          <div className="editor-field">
+            <label>アカウント</label>
+            <div className="settings-account">
+              <div className="settings-account-row">
+                <div className="settings-account-main">
+                  <div className="settings-account-name">{authUser?.email || "Signed in"}</div>
+                  <div className="settings-account-sub">
+                    {firebaseStatus.loading
+                      ? "Firebase connecting..."
+                      : firebaseStatus.error || "Firebase connected"}
+                  </div>
+                </div>
+                <button className="editor-btn secondary" onClick={onSignOut}>Sign out</button>
+              </div>
+            </div>
+          </div>
           <div className="editor-field">
             <label>旅行プラン</label>
             <div className="settings-list">
@@ -1585,6 +2317,232 @@ function SettingsSheet({ plans, selectedPlanId, onClose, onSelectPlan, onCreateP
           <button className="editor-btn secondary" onClick={onClose}>閉じる</button>
           <button className="editor-btn primary" onClick={onCreatePlan}>新規旅行を追加</button>
           <div />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlannerSettingsSheet({
+  plans,
+  selectedPlan,
+  selectedPlanId,
+  authUser,
+  firebaseStatus,
+  publicShareUrl,
+  onClose,
+  onSelectPlan,
+  onCreatePlan,
+  onSignOut,
+  onPublishedChange,
+  onRegenerateShareLink,
+  onAddEditorEmail,
+  onRemoveEditorEmail,
+}) {
+  const [editorEmail, setEditorEmail] = useState("");
+  const [shareLinkFeedback, setShareLinkFeedback] = useState("");
+
+  async function handleCopyShareLink() {
+    if (!publicShareUrl || typeof navigator === "undefined" || !navigator.clipboard) {
+      setShareLinkFeedback("リンクをコピーできませんでした");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(publicShareUrl);
+      setShareLinkFeedback("コピーしました");
+    } catch (_error) {
+      setShareLinkFeedback("リンクをコピーできませんでした");
+      return;
+    }
+
+    window.clearTimeout(handleCopyShareLink.timeoutId);
+    handleCopyShareLink.timeoutId = window.setTimeout(() => {
+      setShareLinkFeedback("");
+    }, 2000);
+  }
+
+  function handleAddEditor() {
+    const trimmed = editorEmail.trim().toLowerCase();
+    if (!trimmed) {
+      return;
+    }
+    onAddEditorEmail(trimmed);
+    setEditorEmail("");
+  }
+
+  return (
+    <div className="editor-backdrop settings-backdrop" onClick={onClose}>
+      <div className="editor overlay-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="editor-head">
+          <div className="editor-title">設定</div>
+          <button className="editor-close" onClick={onClose}>×</button>
+        </div>
+        <div className="editor-grid">
+          <div className="editor-field">
+            <label>アカウント</label>
+            <div className="settings-account">
+              <div className="settings-account-row">
+                <div className="settings-account-main">
+                  <div className="settings-account-name">{authUser?.email || "Signed in"}</div>
+                  <div className="settings-account-sub">
+                    {firebaseStatus.loading
+                      ? "Firebase connecting..."
+                      : firebaseStatus.error || "Firebase connected"}
+                  </div>
+                </div>
+                <button className="editor-btn secondary" onClick={onSignOut}>Sign out</button>
+              </div>
+            </div>
+          </div>
+
+          {selectedPlan ? (
+            <>
+              <div className="editor-field">
+                <label>共有公開</label>
+                <div className="settings-account-row">
+                  <div className="settings-account-main">
+                    <div className="settings-account-name">{selectedPlan.published ? "公開中" : "非公開"}</div>
+                    <div className="settings-account-sub">
+                      リンクを知っている人は {selectedPlan.published ? "閲覧できます" : "閲覧できません"}
+                    </div>
+                  </div>
+                  <button className="editor-btn secondary" onClick={() => onPublishedChange(!selectedPlan.published)}>
+                    {selectedPlan.published ? "非公開にする" : "公開する"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="editor-field">
+                <label>共有リンク</label>
+                <input className="editor-input" value={publicShareUrl} readOnly />
+                {shareLinkFeedback ? <div className="settings-account-sub">{shareLinkFeedback}</div> : null}
+                <div className="editor-actions">
+                  <button className="editor-btn secondary" onClick={handleCopyShareLink}>コピー</button>
+                  <button className="editor-btn secondary" onClick={onRegenerateShareLink}>再生成</button>
+                  <div />
+                </div>
+              </div>
+
+              <div className="editor-field">
+                <label>編集者メール</label>
+                <div className="editor-inline">
+                  <input
+                    className="editor-input"
+                    type="email"
+                    value={editorEmail}
+                    onChange={(event) => setEditorEmail(event.target.value)}
+                    placeholder="name@example.com"
+                  />
+                  <button className="editor-fetch" onClick={handleAddEditor}>追加</button>
+                </div>
+                <div className="settings-list">
+                  {(selectedPlan.editorEmails || []).map((email) => (
+                    <div className="settings-account-row" key={email}>
+                      <div className="settings-account-main">
+                        <div className="settings-account-name">{email}</div>
+                      </div>
+                      <button className="editor-btn secondary" onClick={() => onRemoveEditorEmail(email)}>削除</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          <div className="editor-field">
+            <label>旅行プラン</label>
+            <div className="settings-list">
+              {plans.map((plan) => (
+                <button
+                  key={plan.id}
+                  className={`settings-item${plan.id === selectedPlanId ? " on" : ""}`}
+                  onClick={() => onSelectPlan(plan.id)}
+                >
+                  <div className="settings-item-name">{plan.icon} {plan.name}</div>
+                  <div className="settings-item-sub">{plan.description}</div>
+                  <div className="settings-item-sub">{formatTripDateRange(plan)}</div>
+                </button>
+              ))}
+            </div>
+            </div>
+        </div>
+        <div className="editor-actions">
+          <button className="editor-btn secondary" onClick={onClose}>閉じる</button>
+          <button className="editor-btn primary" onClick={onCreatePlan}>新規旅行を追加</button>
+          <div />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuthScreen({ authMode, authForm, authPending, authError, onChangeMode, onChangeField, onSubmit, onGoogle, onResetPassword }) {
+  const isSignup = authMode === "signup";
+
+  return (
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="auth-badge">TravelPlanner Secure Sync</div>
+        <div className="auth-title">旅程を Firebase に保存します</div>
+        <div className="auth-copy">
+          メールアドレスまたは Google アカウントでログインすると、旅程をユーザーごとに同期できます。
+        </div>
+
+        <form className="auth-form" onSubmit={onSubmit}>
+          <div className="auth-field">
+            <label className="auth-label">Email</label>
+            <input
+              className="auth-input"
+              type="email"
+              value={authForm.email}
+              onChange={(event) => onChangeField("email", event.target.value)}
+              placeholder="name@example.com"
+              autoComplete="email"
+              disabled={authPending}
+            />
+          </div>
+          <div className="auth-field">
+            <label className="auth-label">Password</label>
+            <input
+              className="auth-input"
+              type="password"
+              value={authForm.password}
+              onChange={(event) => onChangeField("password", event.target.value)}
+              placeholder="6文字以上"
+              autoComplete={isSignup ? "new-password" : "current-password"}
+              disabled={authPending}
+            />
+          </div>
+          <div className="auth-error">{authError}</div>
+          <button className="auth-submit" type="submit" disabled={authPending}>
+            {authPending ? "処理中..." : isSignup ? "メールで登録" : "メールでログイン"}
+          </button>
+        </form>
+
+        <div className="auth-divider">or</div>
+
+        <button className="auth-google" type="button" onClick={onGoogle} disabled={authPending}>
+          {authPending ? "処理中..." : "Google でログイン"}
+        </button>
+
+        {!isSignup ? (
+          <button className="auth-toggle" type="button" onClick={onResetPassword} disabled={authPending}>
+            パスワードを忘れた場合
+          </button>
+        ) : null}
+
+        <button
+          className="auth-toggle"
+          type="button"
+          onClick={() => onChangeMode(isSignup ? "signin" : "signup")}
+          disabled={authPending}
+        >
+          {isSignup ? "既存アカウントでログインする" : "メールアカウントを新規作成する"}
+        </button>
+
+        <div className="auth-note">
+          Firebase Authentication 側で「メール/パスワード」と「Google」を有効化しておく必要があります。
         </div>
       </div>
     </div>
@@ -1741,6 +2699,11 @@ function formatMonthDay(date) {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
+function normalizeCategoryValue(category) {
+  const normalized = String(category || "").trim();
+  return categoryAliases[normalized] || normalized || "観光";
+}
+
 function createStopDraft(base, forcedDay) {
   const category = base?.category || "観光";
   return {
@@ -1839,6 +2802,109 @@ function timeToMinutes(value) {
 
 function getCategoryEmoji(category) {
   return categoryOptions.find((option) => option.value === category)?.emoji || "📍";
+}
+
+function createShareId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function hydratePlanData(plan) {
+  return {
+    ...plan,
+    published: plan?.published ?? true,
+    shareId: plan?.shareId || createShareId(),
+    ownerEmail: plan?.ownerEmail || "",
+    editorEmails: Array.isArray(plan?.editorEmails) ? plan.editorEmails.map((email) => String(email).toLowerCase()) : [],
+    stops: Array.isArray(plan?.stops) ? sortStops(plan.stops) : [],
+  };
+}
+
+function normalizeCategoryValueFixed(category) {
+  const normalized = String(category || "").trim();
+  return stableCategoryAliases[normalized] || normalized || "\u89b3\u5149";
+}
+
+function getCategoryEmojiFixed(category) {
+  return stableCategoryOptions.find((option) => option.value === normalizeCategoryValueFixed(category))?.emoji || "\ud83d\udccd";
+}
+
+function createStopDraftFixed(base, forcedDay) {
+  const category = normalizeCategoryValueFixed(base?.category || "\u89b3\u5149");
+  return {
+    id: base?.id || "",
+    name: base?.name || "",
+    emoji: base?.emoji || getCategoryEmojiFixed(category),
+    emojiAuto: base ? false : true,
+    day: String(forcedDay || base?.day || 1),
+    time: base?.time || "10:00",
+    category,
+    short: base?.short || "",
+    detail: base?.detail || "",
+    mapUrl: base?.mapUrl || "",
+    photoUrl: base?.photoUrl || "",
+    lat: base?.lat != null ? String(base.lat) : "",
+    lng: base?.lng != null ? String(base.lng) : "",
+  };
+}
+
+function normalizeStopDraftFixed(draft, existingStop) {
+  const lat = Number.parseFloat(draft.lat);
+  const lng = Number.parseFloat(draft.lng);
+  const safeName = draft.name.trim() || "New stop";
+  const id = existingStop?.id || createStopId(safeName);
+  const [chip, chipText] = existingStop ? [existingStop.chip, existingStop.chipText] : pickChipPair(id);
+  const category = normalizeCategoryValueFixed(draft.category);
+
+  return {
+    id,
+    name: safeName,
+    emoji: draft.emoji.trim() || getCategoryEmojiFixed(category),
+    day: Math.max(1, Number.parseInt(draft.day, 10) || 1),
+    time: isValidTime(draft.time) ? draft.time : "10:00",
+    category,
+    short: draft.short.trim() || safeName,
+    detail: draft.detail.trim() || "",
+    mapUrl: draft.mapUrl.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeName)}`,
+    photoUrl: draft.photoUrl.trim() || `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(safeName)}`,
+    lat: Number.isFinite(lat) ? lat : 33.3158,
+    lng: Number.isFinite(lng) ? lng : 131.4772,
+    chip,
+    chipText,
+  };
+}
+
+function hydratePlanDataFixed(plan) {
+  return {
+    ...plan,
+    published: plan?.published ?? true,
+    shareId: plan?.shareId || createShareId(),
+    ownerEmail: plan?.ownerEmail || "",
+    editorEmails: Array.isArray(plan?.editorEmails) ? plan.editorEmails.map((email) => String(email).toLowerCase()) : [],
+    stops: Array.isArray(plan?.stops)
+      ? sortStops(plan.stops.map((stop) => ({ ...stop, category: normalizeCategoryValueFixed(stop?.category) })))
+      : [],
+  };
+}
+
+function mapAuthError(error) {
+  switch (error?.code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "メールアドレスまたはパスワードが正しくありません";
+    case "auth/popup-closed-by-user":
+      return "Google ログインがキャンセルされました";
+    case "auth/email-already-in-use":
+      return "このメールアドレスは既に使われています";
+    case "auth/weak-password":
+      return "パスワードは6文字以上にしてください";
+    case "auth/too-many-requests":
+      return "試行回数が多すぎます。少し待って再試行してください";
+    case "auth/network-request-failed":
+      return "ネットワークエラーが発生しました";
+    default:
+      return error?.message || "認証に失敗しました";
+  }
 }
 
 function extractCoordsFromGoogleMapsUrl(value) {
