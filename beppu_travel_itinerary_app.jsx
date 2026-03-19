@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 
-const initialStops = [
+const beppuStops = [
   {
     id: "yukuhashi",
     name: "行橋",
@@ -122,12 +122,73 @@ const initialStops = [
   },
 ];
 
-const kannawaArea = {
-  id: "kannawa",
-  name: "鉄輪エリア",
-  short: "地獄蒸しと地獄めぐりの密集スポット",
-  stopIds: ["jigokuMushi", "umi", "kamado", "oniishi"],
-};
+const initialPlans = [
+  {
+    id: "beppu-trip",
+    icon: "♨️",
+    name: "別府旅行",
+    description: "地獄めぐり＆杉乃井ホテル泊",
+    startDate: "2026-03-28",
+    stops: beppuStops,
+  },
+  {
+    id: "yamaguchi-trip",
+    icon: "⛩️",
+    name: "山口旅行",
+    description: "角島と下関を回る週末プラン",
+    startDate: "2026-04-12",
+    stops: [
+      {
+        id: "shin-yamaguchi",
+        name: "新山口駅",
+        emoji: "🚄",
+        day: 1,
+        time: "9:30",
+        category: "出発",
+        short: "朝に新山口へ到着",
+        detail: "新山口駅を起点にレンタカーで移動開始。",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=%E6%96%B0%E5%B1%B1%E5%8F%A3%E9%A7%85",
+        photoUrl: "https://www.google.com/search?tbm=isch&q=%E6%96%B0%E5%B1%B1%E5%8F%A3%E9%A7%85",
+        lat: 34.0489,
+        lng: 131.386,
+        chip: "#e2e8f0",
+        chipText: "#475569",
+      },
+      {
+        id: "tsunoshima",
+        name: "角島大橋",
+        emoji: "🌉",
+        day: 1,
+        time: "12:00",
+        category: "観光",
+        short: "海の上を走る絶景スポット",
+        detail: "山口旅行のメインスポット。橋と海の景色を楽しむ。",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=%E8%A7%92%E5%B3%B6%E5%A4%A7%E6%A9%8B",
+        photoUrl: "https://www.google.com/search?tbm=isch&q=%E8%A7%92%E5%B3%B6%E5%A4%A7%E6%A9%8B",
+        lat: 34.3453,
+        lng: 130.8397,
+        chip: "#bae6fd",
+        chipText: "#0c4a6e",
+      },
+      {
+        id: "shimonoseki-stay",
+        name: "下関市内ホテル",
+        emoji: "🏨",
+        day: 1,
+        time: "18:00",
+        category: "宿泊",
+        short: "市内にチェックイン",
+        detail: "夜は下関市内で宿泊。",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=%E4%B8%8B%E9%96%A2%E9%A7%85",
+        photoUrl: "https://www.google.com/search?tbm=isch&q=%E4%B8%8B%E9%96%A2",
+        lat: 33.9502,
+        lng: 130.9231,
+        chip: "#a7f3d0",
+        chipText: "#064e3b",
+      },
+    ],
+  },
+];
 
 const chipPalette = [
   ["#e2e8f0", "#475569"],
@@ -140,6 +201,7 @@ const chipPalette = [
   ["#a7f3d0", "#064e3b"],
   ["#fef08a", "#713f12"],
 ];
+
 
 const categoryOptions = [
   { value: "出発", emoji: "🚗" },
@@ -211,7 +273,6 @@ body {
 .hdr-sub   { font-size: 11px; color: var(--text2); margin-top: 1px; font-weight: 500; }
 .hdr-live  { font-size: 10px; color: var(--accent); margin-top: 4px; font-weight: 700; }
 .hdr-pill {
-  margin-left: auto;
   background: var(--accent);
   color: #fff;
   font-size: 10px;
@@ -221,44 +282,21 @@ body {
   letter-spacing: 0.04em;
   flex-shrink: 0;
 }
-
-/* tabs */
-.tabs {
-  flex-shrink: 0;
+.hdr-side {
+  margin-left: auto;
   display: flex;
-  padding: 8px 12px;
-  gap: 6px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 8px;
 }
-.tabs-add {
-  flex-shrink: 0;
+.hdr-settings {
+  width: 34px;
+  height: 34px;
   border: none;
-  border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 0 12px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.tab {
-  flex: 1;
-  height: 36px;
-  border: none;
-  border-radius: 10px;
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
+  border-radius: 12px;
   background: var(--surface2);
   color: var(--text2);
-  transition: background 0.14s, color 0.14s;
-  -webkit-tap-highlight-color: transparent;
+  font-size: 16px;
 }
-.tab.on { background: var(--accent); color: #fff; }
 
 /* scroll */
 .scroll {
@@ -286,6 +324,14 @@ body {
 .map-canvas .leaflet-container {
   width: 100%;
   height: 100%;
+  z-index: 0;
+}
+.map-canvas .leaflet-pane,
+.map-canvas .leaflet-top,
+.map-canvas .leaflet-bottom,
+.map-canvas .leaflet-control,
+.map-canvas .leaflet-popup-pane {
+  z-index: 0 !important;
 }
 .leaflet-popup-content-wrapper {
   border-radius: 14px;
@@ -355,90 +401,6 @@ body {
   letter-spacing: 0.06em;
 }
 
-.area-card {
-  background: #fff8f4;
-  border: 1px solid #ffd8cc;
-  border-radius: 16px;
-  padding: 12px 14px;
-}
-.area-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.area-title {
-  font-size: 13px;
-  font-weight: 700;
-}
-.area-sub {
-  font-size: 11px;
-  color: var(--text2);
-  margin-top: 3px;
-  font-weight: 500;
-}
-.area-badge {
-  flex-shrink: 0;
-  border-radius: 999px;
-  background: #fff;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 5px 9px;
-}
-.area-list {
-  margin-top: 10px;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-.area-list::-webkit-scrollbar {
-  display: none;
-}
-.area-chip {
-  min-width: 132px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #fff;
-  padding: 10px 11px;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.area-chip.sel {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.area-chip.now {
-  border-color: #dc2626;
-  box-shadow: inset 0 0 0 1px rgba(220,38,38,0.16);
-}
-.area-chip-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.area-chip-emoji {
-  font-size: 16px;
-}
-.area-chip-time {
-  font-size: 10px;
-  color: var(--text2);
-  font-weight: 700;
-}
-.area-chip-name {
-  margin-top: 5px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.area-chip-short {
-  margin-top: 2px;
-  font-size: 10px;
-  color: var(--text2);
-  font-weight: 500;
-}
-
 /* info grid */
 .info-grid {
   display: grid;
@@ -459,6 +421,65 @@ body {
   text-transform: uppercase;
 }
 .mini-val { font-size: 13px; font-weight: 700; margin-top: 4px; }
+
+.schedule-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.schedule-action {
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 11px 12px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+}
+.schedule-action.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.schedule-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.schedule-toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  font-family: var(--font);
+}
+.schedule-toggle-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.schedule-toggle-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text2);
+  font-weight: 500;
+}
+.schedule-toggle-mark {
+  font-size: 18px;
+  color: var(--text2);
+}
+.schedule-body {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  display: grid;
+  gap: 7px;
+}
 
 /* ── LIST ── */
 .list-wrap {
@@ -554,7 +575,7 @@ body {
   inset: 0;
   background: rgba(0,0,0,0.32);
   backdrop-filter: blur(3px);
-  z-index: 100;
+  z-index: 4000;
   display: flex;
   align-items: flex-end;
   animation: bdfade 0.18s ease;
@@ -669,6 +690,10 @@ body {
   display: flex;
   align-items: flex-end;
 }
+.settings-backdrop {
+  align-items: center;
+  justify-content: center;
+}
 .editor {
   width: 100%;
   max-width: 430px;
@@ -678,6 +703,14 @@ body {
   padding: 14px 16px 30px;
   max-height: 90svh;
   overflow-y: auto;
+}
+.overlay-panel {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(82vh, 760px);
+  margin: 0;
+  border-radius: 24px;
+  padding: 18px 18px 22px;
+  box-shadow: 0 24px 80px rgba(28,25,23,0.2);
 }
 .editor-head {
   display: flex;
@@ -810,39 +843,123 @@ body {
   background: #fee2e2;
   color: #991b1b;
 }
+.settings-list {
+  display: grid;
+  gap: 8px;
+}
+.settings-item {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px;
+  text-align: left;
+}
+.settings-item.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.settings-item-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+.settings-item-sub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text2);
+  font-weight: 500;
+}
 `;
 
 export default function App() {
-  const [tab, setTab] = useState("map");
-  const [stopsData, setStopsData] = useState(() => initialStops);
+  const [plans, setPlans] = useState(() => initialPlans);
+  const [selectedPlanId, setSelectedPlanId] = useState(() => initialPlans[0].id);
   const [selId, setSelId] = useState("jigokuMushi");
   const [sheet, setSheet] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [editorMode, setEditorMode] = useState(null);
   const [draft, setDraft] = useState(() => createStopDraft());
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  const [planDraft, setPlanDraft] = useState(() => createPlanDraft());
   const [geoState, setGeoState] = useState({ loading: false, message: "" });
   const [searchResults, setSearchResults] = useState([]);
+  const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) || plans[0];
+  const stopsData = selectedPlan?.stops || [];
   const spotMap = useMemo(() => Object.fromEntries(stopsData.map(s => [s.id, s])), [stopsData]);
   const geocodeCache = React.useRef(new Map());
+  const hasSyncedInitialSelection = React.useRef(false);
+  const scrollRef = React.useRef(null);
   const now = useNowClock();
-  const currentStopId = useMemo(() => getCurrentStopId(now, stopsData), [now, stopsData]);
+  const currentStopId = useMemo(() => getCurrentStopId(now, stopsData, selectedPlan?.startDate), [now, stopsData, selectedPlan?.startDate]);
   const currentStop = currentStopId ? spotMap[currentStopId] : null;
-  const sel = spotMap[selId] || stopsData[0];
+  const sel = spotMap[selId] || stopsData[0] || null;
+  const tripDateLabel = useMemo(() => formatTripDateRange(selectedPlan), [selectedPlan]);
 
   React.useEffect(() => {
     if (!stopsData.find((stop) => stop.id === selId) && stopsData[0]) {
       setSelId(stopsData[0].id);
+      hasSyncedInitialSelection.current = false;
     }
   }, [selId, stopsData]);
 
-  function open(id) { setSelId(id); setSheet(true); }
+  React.useEffect(() => {
+    if (hasSyncedInitialSelection.current) return;
+    if (currentStopId && spotMap[currentStopId]) {
+      setSelId(currentStopId);
+      hasSyncedInitialSelection.current = true;
+      return;
+    }
+    if (stopsData[0]) {
+      hasSyncedInitialSelection.current = true;
+    }
+  }, [currentStopId, spotMap, stopsData]);
+
+  React.useEffect(() => {
+    hasSyncedInitialSelection.current = false;
+  }, [selectedPlanId]);
+
+  function switchPlan(planId) {
+    const nextPlan = plans.find((plan) => plan.id === planId);
+    if (!nextPlan) return;
+
+    const nextCurrentStopId = getCurrentStopId(now, nextPlan.stops, nextPlan.startDate);
+    setSelectedPlanId(planId);
+    setSelId(nextCurrentStopId || nextPlan.stops[0]?.id || "");
+    setSheet(false);
+    setSettingsOpen(false);
+    hasSyncedInitialSelection.current = false;
+  }
+
+  function open(id) {
+    if (!id) return;
+    setSelId(id);
+    setSheet(true);
+  }
+  function focusOnMap(id) {
+    setSelId(id);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
   function openCreate() {
     setSheet(false);
-    setDraft(createStopDraft());
+    setDraft({
+      ...createStopDraft(null, 1),
+      category: "出発",
+      emoji: getCategoryEmoji("出発"),
+      time: "09:00",
+    });
     setEditorMode("create");
+  }
+  function openPlanCreate() {
+    setSettingsOpen(false);
+    setPlanDraft(createPlanDraft());
+    setPlanEditorOpen(true);
   }
   function openEdit(id) {
     const stop = spotMap[id];
     if (!stop) return;
+    setSheet(false);
     setDraft(createStopDraft(stop));
     setEditorMode("edit");
   }
@@ -851,10 +968,24 @@ export default function App() {
     setGeoState({ loading: false, message: "" });
     setSearchResults([]);
   }
+  function closePlanEditor() {
+    setPlanEditorOpen(false);
+  }
   function handleDraftChange(key, value) {
     setDraft((prev) => {
       if (key === "category") {
-        return { ...prev, category: value, emoji: getCategoryEmoji(value) };
+        return {
+          ...prev,
+          category: value,
+          emoji: prev.emojiAuto ? getCategoryEmoji(value) : prev.emoji,
+        };
+      }
+      if (key === "emoji") {
+        return {
+          ...prev,
+          emoji: value,
+          emojiAuto: false,
+        };
       }
       if (key === "mapUrl") {
         const coords = extractCoordsFromGoogleMapsUrl(value);
@@ -867,6 +998,9 @@ export default function App() {
       }
       return { ...prev, [key]: value };
     });
+  }
+  function handlePlanDraftChange(key, value) {
+    setPlanDraft((prev) => ({ ...prev, [key]: value }));
   }
   async function searchDraftPlace() {
     const nameQuery = draft.name.trim() || extractSearchTextFromMapUrl(draft.mapUrl);
@@ -912,21 +1046,48 @@ export default function App() {
   }
   function saveDraft() {
     const normalized = normalizeStopDraft(draft, editorMode === "edit" ? spotMap[draft.id] : null);
-    setStopsData((prev) => {
-      const next = editorMode === "edit"
-        ? prev.map((stop) => (stop.id === normalized.id ? normalized : stop))
-        : [...prev, normalized];
-      return sortStops(next);
-    });
+    setPlans((prev) =>
+      prev.map((plan) =>
+        plan.id !== selectedPlanId
+          ? plan
+          : {
+              ...plan,
+              stops: sortStops(
+                editorMode === "edit"
+                  ? plan.stops.map((stop) => (stop.id === normalized.id ? normalized : stop))
+                  : [...plan.stops, normalized],
+              ),
+            },
+      ),
+    );
     setSelId(normalized.id);
     setSheet(false);
     setEditorMode(null);
   }
   function deleteDraft() {
     if (editorMode !== "edit" || stopsData.length <= 1) return;
-    setStopsData((prev) => prev.filter((stop) => stop.id !== draft.id));
+    setPlans((prev) =>
+      prev.map((plan) =>
+        plan.id !== selectedPlanId
+          ? plan
+          : { ...plan, stops: plan.stops.filter((stop) => stop.id !== draft.id) },
+      ),
+    );
     setSheet(false);
     setEditorMode(null);
+  }
+  function savePlanDraft() {
+    const normalizedPlan = normalizePlanDraft(planDraft);
+    setPlans((prev) => [...prev, normalizedPlan]);
+    setSelectedPlanId(normalizedPlan.id);
+    setPlanEditorOpen(false);
+    setDraft({
+      ...createStopDraft(null, 1),
+      category: "出発",
+      emoji: getCategoryEmoji("出発"),
+      time: "09:00",
+    });
+    setEditorMode("create");
   }
 
   return (
@@ -934,30 +1095,37 @@ export default function App() {
       <style>{css}</style>
       <div className="shell">
         <div className="hdr">
-          <div className="hdr-icon">♨️</div>
+          <div className="hdr-icon">{selectedPlan?.icon || "🧳"}</div>
           <div>
-            <div className="hdr-title">別府旅行プラン</div>
-            <div className="hdr-sub">地獄めぐり＆杉乃井ホテル泊</div>
+            <div className="hdr-title">{selectedPlan?.name || "旅行プラン"}</div>
+            <div className="hdr-sub">{selectedPlan?.description || "説明未設定"}</div>
             <div className="hdr-live">
               {currentStop
                 ? `今の想定位置: ${formatStopDay(currentStop)} ${currentStop.time} ${currentStop.name}`
                 : "現在時刻は旅程外です"}
             </div>
           </div>
-          <div className="hdr-pill">1泊2日</div>
+          <div className="hdr-side">
+            <div className="hdr-pill">{tripDateLabel}</div>
+            <button className="hdr-settings" onClick={() => setSettingsOpen(true)}>⚙️</button>
+          </div>
         </div>
 
-        <div className="tabs">
-          <button className={`tab${tab === "map" ? " on" : ""}`} onClick={() => setTab("map")}>🗺 地図</button>
-          <button className={`tab${tab === "list" ? " on" : ""}`} onClick={() => setTab("list")}>📋 予定</button>
-          <button className="tabs-add" onClick={openCreate}>＋追加</button>
-        </div>
-
-        <div className="scroll">
-          {tab === "map"
-            ? <MapView stopsData={stopsData} spotMap={spotMap} selId={selId} currentStopId={currentStopId} onPick={setSelId} onOpen={open} sel={sel} />
-            : <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={open} />
-          }
+        <div className="scroll" ref={scrollRef}>
+          <MapView
+            planId={selectedPlanId}
+            stopsData={stopsData}
+            spotMap={spotMap}
+            selId={selId}
+            currentStopId={currentStopId}
+            onPick={setSelId}
+            onOpen={open}
+            onFocusStop={focusOnMap}
+            onCreateStop={openCreate}
+            onToggleSchedule={() => setScheduleOpen((prev) => !prev)}
+            scheduleOpen={scheduleOpen}
+            sel={sel}
+          />
         </div>
       </div>
 
@@ -977,24 +1145,52 @@ export default function App() {
           searchResults={searchResults}
         />
       )}
+      {planEditorOpen && (
+        <PlanEditorSheet
+          draft={planDraft}
+          onChange={handlePlanDraftChange}
+          onClose={closePlanEditor}
+          onSave={savePlanDraft}
+        />
+      )}
+      {settingsOpen && (
+        <SettingsSheet
+          plans={plans}
+          selectedPlanId={selectedPlanId}
+          onClose={() => setSettingsOpen(false)}
+          onSelectPlan={switchPlan}
+          onCreatePlan={openPlanCreate}
+        />
+      )}
     </>
   );
 }
 
-function MapView({ stopsData, spotMap, selId, currentStopId, onPick, onOpen, sel }) {
+function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onOpen, onFocusStop, onCreateStop, onToggleSchedule, scheduleOpen, sel }) {
+  if (!sel || stopsData.length === 0) {
+    return (
+      <div className="map-wrap">
+        <div className="sel-card">
+          <div className="sel-icon" style={{ background: "#fff2ee" }}>📍</div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="sel-name">最初の予定を追加してください</div>
+            <div className="sel-short">旅行プランを作成したので、まずは出発地点を登録します。</div>
+          </div>
+          <button className="sel-open" onClick={onCreateStop}>追加</button>
+        </div>
+      </div>
+    );
+  }
+
   const route = useMemo(() => stopsData.map(s => s.id), [stopsData]);
   const positions = useMemo(() => route.map(id => [spotMap[id].lat, spotMap[id].lng]), [route, spotMap]);
-  const kannawaStops = kannawaArea.stopIds.map(id => spotMap[id]).filter(Boolean);
-  const kannawaIds = kannawaStops.map((stop) => stop.id);
-  const kannawaCenter = useMemo(() => getCenterFromStops(kannawaStops), [kannawaStops]);
-  const inKannawaArea = kannawaIds.includes(selId);
-  const mapMarkerIds = route.filter(id => !kannawaIds.includes(id) || id === selId);
-  const currentInKannawaArea = currentStopId ? kannawaIds.includes(currentStopId) : false;
+  const currentSpot = currentStopId ? spotMap[currentStopId] : null;
+  const focusSpot = currentSpot || sel;
 
   return (
     <div className="map-wrap">
       <div className="map-canvas">
-        <MapContainer center={[sel.lat, sel.lng]} zoom={11} scrollWheelZoom className="leaflet-shell">
+        <MapContainer key={planId} center={[focusSpot.lat, focusSpot.lng]} zoom={11} scrollWheelZoom className="leaflet-shell">
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -1003,11 +1199,13 @@ function MapView({ stopsData, spotMap, selId, currentStopId, onPick, onOpen, sel
             positions={positions}
             pathOptions={{ color: "#e85c3a", weight: 4, opacity: 0.7, dashArray: "7 8" }}
           />
-          {mapMarkerIds.map((id, i) => {
+          {route.map((id, i) => {
             const s = spotMap[id];
             return (
-              <Marker
+              <AutoPopupMarker
                 key={id}
+                markerId={id}
+                selectedId={selId}
                 position={[s.lat, s.lng]}
                 icon={createMapIcon(s, selId === id, currentStopId === id, route.indexOf(id) + 1)}
                 eventHandlers={{
@@ -1042,29 +1240,14 @@ function MapView({ stopsData, spotMap, selId, currentStopId, onPick, onOpen, sel
                     </button>
                   </div>
                 </Popup>
-              </Marker>
+              </AutoPopupMarker>
             );
           })}
-          {!inKannawaArea && kannawaStops.length > 0 ? (
-            <Marker
-              position={[kannawaCenter.lat, kannawaCenter.lng]}
-              icon={createAreaIcon(kannawaStops.length, currentInKannawaArea)}
-              eventHandlers={{
-                click: () => onPick(kannawaStops[0].id),
-              }}
-            >
-              <Popup>
-                <div style={{ minWidth: 180 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#78716c", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                    エリア表示
-                  </div>
-                  <div style={{ marginTop: 4, fontSize: 14, fontWeight: 700, color: "#1c1917" }}>{kannawaArea.name}</div>
-                  <div style={{ marginTop: 3, fontSize: 12, color: "#78716c", fontWeight: 500 }}>{kannawaArea.short}</div>
-                </div>
-              </Popup>
-            </Marker>
-          ) : null}
-          <MapSelectionSync spot={sel} positions={positions} inKannawaArea={inKannawaArea} />
+          <MapSelectionSync
+            spot={sel}
+            currentSpot={currentSpot}
+            positions={positions}
+          />
         </MapContainer>
       </div>
 
@@ -1078,33 +1261,6 @@ function MapView({ stopsData, spotMap, selId, currentStopId, onPick, onOpen, sel
         <button className="sel-open" onClick={() => onOpen(selId)}>詳細</button>
       </div>
 
-      <div className="area-card">
-        <div className="area-top">
-          <div>
-            <div className="area-title">鉄輪エリアの見どころ</div>
-            <div className="area-sub">近いスポットは地図ではまとめて、ここから選択します。</div>
-          </div>
-          <div className="area-badge">{kannawaStops.length} 件</div>
-        </div>
-        <div className="area-list">
-          {kannawaStops.map((spot) => (
-            <button
-              key={spot.id}
-              className={`area-chip${selId === spot.id ? " sel" : ""}${currentStopId === spot.id ? " now" : ""}`}
-              onClick={() => onPick(spot.id)}
-            >
-              <div className="area-chip-top">
-                <span className="area-chip-emoji">{spot.emoji}</span>
-                <span className="area-chip-time">{spot.time}</span>
-              </div>
-              <div className="area-chip-name">{spot.name}</div>
-              <div className="area-chip-short">{spot.short}</div>
-              {currentStopId === spot.id ? <div style={{ marginTop: 6 }}><span className="now-badge">NOW</span></div> : null}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="info-grid">
         {[
           ["⏰ 時刻", `${formatStopDay(sel)} ${sel.time}`],
@@ -1116,15 +1272,37 @@ function MapView({ stopsData, spotMap, selId, currentStopId, onPick, onOpen, sel
           </div>
         ))}
       </div>
+
+      <div className="schedule-panel">
+        <button className="schedule-toggle" onClick={onToggleSchedule}>
+          <div>
+            <div className="schedule-toggle-title">予定一覧</div>
+            <div className="schedule-toggle-sub">地図の下でまとめて確認できます</div>
+          </div>
+          <div className="schedule-toggle-mark">{scheduleOpen ? "▾" : "▸"}</div>
+        </button>
+        <div className="schedule-body">
+          <div className="schedule-actions">
+            <button className="schedule-action primary" onClick={onCreateStop}>
+              ＋予定を追加
+            </button>
+          </div>
+        </div>
+        {scheduleOpen ? (
+          <div className="schedule-body">
+            <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onFocusStop} compact />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function ListView({ stopsData, selId, currentStopId, onOpen }) {
+function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact = false }) {
   return (
-    <div className="list-wrap">
+    <div className={compact ? "" : "list-wrap"}>
       {stopsData.map((s, i) => (
-        <button key={s.id} className={`li${selId === s.id ? " sel" : ""}${currentStopId === s.id ? " now" : ""}`} onClick={() => onOpen(s.id)}>
+        <button key={s.id} className={`li${selId === s.id ? " sel" : ""}${currentStopId === s.id ? " now" : ""}`} onClick={() => (compact && onSelect ? onSelect(s.id) : onOpen(s.id))}>
           <div className="li-icon" style={{ background: s.chip + "66" }}>{s.emoji}</div>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div className="li-row">
@@ -1192,7 +1370,7 @@ function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDele
             </div>
             <div className="editor-field">
               <label>絵文字</label>
-              <input className="editor-input" value={draft.emoji} readOnly />
+              <input className="editor-input" value={draft.emoji} onChange={(e) => onChange("emoji", e.target.value)} />
             </div>
           </div>
 
@@ -1270,22 +1448,128 @@ function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDele
   );
 }
 
-function MapSelectionSync({ spot, positions, inKannawaArea }) {
+function PlanEditorSheet({ draft, onChange, onClose, onSave }) {
+  return (
+    <div className="editor-backdrop settings-backdrop" onClick={onClose}>
+      <div className="editor overlay-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="editor-head">
+          <div className="editor-title">旅行プランを追加</div>
+          <button className="editor-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="editor-grid">
+          <div className="editor-row2">
+            <div className="editor-field">
+              <label>旅行名</label>
+              <input className="editor-input" value={draft.name} onChange={(e) => onChange("name", e.target.value)} />
+            </div>
+            <div className="editor-field">
+              <label>アイコン</label>
+              <input className="editor-input" value={draft.icon} onChange={(e) => onChange("icon", e.target.value)} />
+            </div>
+          </div>
+          <div className="editor-field">
+            <label>説明</label>
+            <input className="editor-input" value={draft.description} onChange={(e) => onChange("description", e.target.value)} />
+          </div>
+          <div className="editor-row2">
+            <div className="editor-field">
+              <label>開始日</label>
+              <input className="editor-input" type="date" value={draft.startDate} onChange={(e) => onChange("startDate", e.target.value)} />
+            </div>
+            <div className="editor-field">
+              <label>終了日</label>
+              <input className="editor-input" type="date" value={draft.endDate} onChange={(e) => onChange("endDate", e.target.value)} />
+            </div>
+          </div>
+          <div className="editor-note">まず旅行プランを作成し、その中に予定を追加していく流れです。</div>
+        </div>
+        <div className="editor-actions">
+          <button className="editor-btn secondary" onClick={onClose}>キャンセル</button>
+          <button className="editor-btn primary" onClick={onSave}>保存</button>
+          <div />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsSheet({ plans, selectedPlanId, onClose, onSelectPlan, onCreatePlan }) {
+  return (
+    <div className="editor-backdrop settings-backdrop" onClick={onClose}>
+      <div className="editor overlay-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="editor-head">
+          <div className="editor-title">設定</div>
+          <button className="editor-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="editor-grid">
+          <div className="editor-field">
+            <label>旅行プラン</label>
+            <div className="settings-list">
+              {plans.map((plan) => (
+                <button
+                  key={plan.id}
+                  className={`settings-item${plan.id === selectedPlanId ? " on" : ""}`}
+                  onClick={() => onSelectPlan(plan.id)}
+                >
+                  <div className="settings-item-name">{plan.icon} {plan.name}</div>
+                  <div className="settings-item-sub">{plan.description}</div>
+                  <div className="settings-item-sub">{formatTripDateRange(plan)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="editor-actions">
+          <button className="editor-btn secondary" onClick={onClose}>閉じる</button>
+          <button className="editor-btn primary" onClick={onCreatePlan}>新規旅行を追加</button>
+          <div />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MapSelectionSync({ spot, currentSpot, positions }) {
   const map = useMap();
+  const hasInitialized = React.useRef(false);
 
   React.useEffect(() => {
     map.fitBounds(positions, { padding: [30, 30] });
   }, [map, positions]);
 
   React.useEffect(() => {
-    const zoom = inKannawaArea ? 14 : map.getZoom() < 11 ? 11 : map.getZoom();
-    map.flyTo([spot.lat, spot.lng], zoom, {
+    const initialSpot = currentSpot || spot;
+
+    if (!hasInitialized.current) {
+      map.setView(getOffsetCenter(map, initialSpot, 120), 12, { animate: false });
+      hasInitialized.current = true;
+      return;
+    }
+
+    const zoom = map.getZoom() < 11 ? 11 : map.getZoom();
+    map.flyTo(getOffsetCenter(map, spot, 60), zoom, {
       animate: true,
       duration: 0.8,
     });
-  }, [inKannawaArea, map, spot]);
+  }, [currentSpot, map, spot]);
 
   return null;
+}
+
+function AutoPopupMarker({ markerId, selectedId, children, ...props }) {
+  const markerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (selectedId === markerId && markerRef.current) {
+      markerRef.current.openPopup();
+    }
+  }, [markerId, selectedId]);
+
+  return (
+    <Marker ref={markerRef} {...props}>
+      {children}
+    </Marker>
+  );
 }
 
 function createMapIcon(spot, active, isCurrent, order) {
@@ -1307,23 +1591,11 @@ function createMapIcon(spot, active, isCurrent, order) {
   });
 }
 
-function createAreaIcon(count, isCurrent) {
-  return L.divIcon({
-    className: "",
-    html: `
-      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-        <div style="min-width:54px;height:54px;border-radius:9999px;background:${isCurrent ? "linear-gradient(135deg,#dc2626,#ef4444)" : "linear-gradient(135deg,#1c1917,#57534e)"};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;box-shadow:0 8px 18px rgba(0,0,0,0.18);border:4px solid rgba(255,255,255,0.95);padding:0 12px;">
-          ${isCurrent ? "NOW" : `${count}件`}
-        </div>
-        <div style="font-size:10px;font-weight:700;color:${isCurrent ? "#991b1b" : "#57534e"};background:${isCurrent ? "rgba(254,226,226,0.98)" : "rgba(255,255,255,0.96)"};border-radius:9999px;padding:2px 8px;line-height:1.4;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-          鉄輪
-        </div>
-      </div>
-    `,
-    iconSize: [66, 74],
-    iconAnchor: [33, 50],
-    popupAnchor: [0, -44],
-  });
+function getOffsetCenter(map, spot, offsetY) {
+  const point = map.project([spot.lat, spot.lng], map.getZoom());
+  const shifted = L.point(point.x, point.y - offsetY);
+  const latLng = map.unproject(shifted, map.getZoom());
+  return [latLng.lat, latLng.lng];
 }
 
 function useNowClock() {
@@ -1339,9 +1611,8 @@ function useNowClock() {
   return now;
 }
 
-function getCurrentStopId(now, stopsData) {
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+function getCurrentStopId(now, stopsData, startDate) {
+  const todayStart = new Date(`${startDate || initialPlans[0].startDate}T00:00:00`);
 
   const schedule = stopsData.map((stop, index) => {
     const [hour, minute] = stop.time.split(":").map(Number);
@@ -1375,32 +1646,30 @@ function formatStopDay(stop) {
   return `DAY ${stop.day}`;
 }
 
-function getCenterFromStops(stopsData) {
-  if (stopsData.length === 0) {
-    return { lat: 33.3156, lng: 131.473 };
+function formatTripDateRange(plan) {
+  if (!plan) return "";
+  const start = new Date(`${plan.startDate}T00:00:00`);
+  const explicitEnd = plan.endDate ? new Date(`${plan.endDate}T00:00:00`) : null;
+  const maxDay = plan.stops.reduce((max, stop) => Math.max(max, stop.day || 1), 1);
+  const end = explicitEnd || new Date(start);
+  if (!explicitEnd) {
+    end.setDate(start.getDate() + maxDay - 1);
   }
-
-  const sum = stopsData.reduce(
-    (acc, stop) => ({
-      lat: acc.lat + stop.lat,
-      lng: acc.lng + stop.lng,
-    }),
-    { lat: 0, lng: 0 },
-  );
-
-  return {
-    lat: sum.lat / stopsData.length,
-    lng: sum.lng / stopsData.length,
-  };
+  return `${formatMonthDay(start)}~${formatMonthDay(end)}`;
 }
 
-function createStopDraft(base) {
+function formatMonthDay(date) {
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function createStopDraft(base, forcedDay) {
   const category = base?.category || "観光";
   return {
     id: base?.id || "",
     name: base?.name || "",
     emoji: base?.emoji || getCategoryEmoji(category),
-    day: String(base?.day || 1),
+    emojiAuto: base ? false : true,
+    day: String(forcedDay || base?.day || 1),
     time: base?.time || "10:00",
     category,
     short: base?.short || "",
@@ -1409,6 +1678,32 @@ function createStopDraft(base) {
     photoUrl: base?.photoUrl || "",
     lat: base?.lat != null ? String(base.lat) : "",
     lng: base?.lng != null ? String(base.lng) : "",
+  };
+}
+
+function createPlanDraft() {
+  return {
+    icon: "🧳",
+    name: "",
+    description: "",
+    startDate: "2026-03-28",
+    endDate: "2026-03-29",
+  };
+}
+
+function normalizePlanDraft(draft) {
+  const name = draft.name.trim() || "新しい旅行";
+  const startDate = draft.startDate || "2026-03-28";
+  const endDate = draft.endDate || startDate;
+
+  return {
+    id: createStopId(`${name}-plan`),
+    icon: draft.icon.trim() || "🧳",
+    name,
+    description: draft.description.trim() || "新しい旅行プラン",
+    startDate,
+    endDate,
+    stops: [],
   };
 }
 
@@ -1422,7 +1717,7 @@ function normalizeStopDraft(draft, existingStop) {
   return {
     id,
     name: safeName,
-    emoji: getCategoryEmoji(draft.category),
+    emoji: draft.emoji.trim() || getCategoryEmoji(draft.category),
     day: Math.max(1, Number.parseInt(draft.day, 10) || 1),
     time: isValidTime(draft.time) ? draft.time : "10:00",
     category: draft.category.trim() || "観光",
