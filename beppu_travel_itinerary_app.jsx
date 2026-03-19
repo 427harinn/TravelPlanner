@@ -1596,6 +1596,23 @@ function MapSelectionSync({ spot, currentSpot, positions }) {
   const hasInitialized = React.useRef(false);
 
   React.useEffect(() => {
+    const syncSize = () => {
+      map.invalidateSize();
+    };
+
+    syncSize();
+    const t1 = window.setTimeout(syncSize, 120);
+    const t2 = window.setTimeout(syncSize, 360);
+
+    window.addEventListener("resize", syncSize);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.removeEventListener("resize", syncSize);
+    };
+  }, [map]);
+
+  React.useEffect(() => {
     map.fitBounds(positions, { padding: [30, 30] });
   }, [map, positions]);
 
