@@ -4,121 +4,160 @@ import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-
 
 const beppuStops = [
   {
-    id: "yukuhashi",
-    name: "行橋",
-    emoji: "🚗",
+    id: "choco-dropoff",
+    name: "行橋でチョコちゃんを預ける",
+    emoji: "🐶",
     day: 1,
-    time: "9:00",
+    time: "09:30",
     category: "出発",
-    short: "朝に行橋を出発",
-    detail: "行橋駅周辺から出発。別府方面へ車で移動して、最初の目的地である鉄輪の地獄蒸し工房を目指す。",
-    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E8%A1%8C%E6%A9%8B%E9%A7%85",
+    short: "行橋でチョコちゃんを預ける",
+    detail: "1日目の最初の予定。行橋でチョコちゃんを預けてから別府方面へ向かう。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E8%A1%8C%E6%A9%8B",
     photoUrl: "https://www.google.com/search?tbm=isch&q=%E8%A1%8C%E6%A9%8B",
     lat: 33.72877, lng: 130.97031, chip: "#e2e8f0", chipText: "#475569",
   },
   {
-    id: "jigokuMushi",
-    name: "地獄蒸し工房 鉄輪",
+    id: "yukuhashi-start",
+    name: "行橋組 出発",
+    emoji: "🚗",
+    day: 1,
+    time: "10:00",
+    category: "移動",
+    short: "行橋組が別府へ向けて出発",
+    detail: "行橋組の出発時刻。ここから別府・鉄輪エリアへ向かう。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E8%A1%8C%E6%A9%8B",
+    photoUrl: "https://www.google.com/search?tbm=isch&q=%E8%A1%8C%E6%A9%8B",
+    lat: 33.72877, lng: 130.97031, chip: "#fed7aa", chipText: "#9a3412",
+  },
+  {
+    id: "kannawa-arrival",
+    name: "別府・鉄輪エリア到着",
+    emoji: "📍",
+    day: 1,
+    time: "11:20",
+    category: "観光",
+    short: "11:10〜11:30ごろ到着 / 11:20ごろ合流予定",
+    detail: "別府・鉄輪エリアに到着。11:20ごろに合流する想定で、その後は地獄蒸し工房へ向かう。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E9%89%84%E8%BC%AA+%E5%88%A5%E5%BA%9C",
+    photoUrl: "https://www.google.com/search?tbm=isch&q=%E9%89%84%E8%BC%AA+%E5%88%A5%E5%BA%9C",
+    lat: 33.3158, lng: 131.4772, chip: "#fca5a5", chipText: "#7f1d1d",
+  },
+  {
+    id: "jigoku-mushi-reception",
+    name: "地獄蒸し工房鉄輪で受付",
     emoji: "♨️",
     day: 1,
-    time: "10:10",
+    time: "11:20",
     category: "昼食",
-    short: "温泉蒸気で食事を楽しむ",
-    detail: "鉄輪の名物である地獄蒸しを体験する最初の立ち寄り先。到着後に受付を済ませて、温泉蒸気を使った食事を楽しむ想定。",
+    short: "待ち時間が長ければ近くの地獄を先に回る",
+    detail: "地獄蒸し工房鉄輪で受付。待ち時間が長ければ近くの地獄を先に回る運用。",
     mapUrl: "https://www.google.com/maps/search/?api=1&query=%E5%9C%B0%E7%8D%84%E8%92%B8%E3%81%97%E5%B7%A5%E6%88%BF%E9%89%84%E8%BC%AA",
     photoUrl: "https://jigokumushi.com/",
-    lat: 33.3158, lng: 131.4772, chip: "#fed7aa", chipText: "#9a3412",
+    lat: 33.3158, lng: 131.4772, chip: "#d9f99d", chipText: "#365314",
   },
   {
-    id: "umi",
-    name: "海地獄",
-    emoji: "🩵",
+    id: "lunch-or-first-half",
+    name: "地獄蒸しランチ or 地獄めぐり前半",
+    emoji: "🍽️",
     day: 1,
     time: "12:00",
-    category: "地獄めぐり",
-    short: "コバルトブルーの定番スポット",
-    detail: "別府地獄めぐりの代表格。鮮やかな青色の湯けむりを楽しめる定番スポットとして組み込まれている。",
-    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E6%B5%B7%E5%9C%B0%E7%8D%84+%E5%88%A5%E5%BA%9C",
-    photoUrl: "https://www.beppu-jigoku.com/umi/",
-    lat: 33.3149, lng: 131.4729, chip: "#bae6fd", chipText: "#0c4a6e",
+    category: "昼食",
+    short: "11:20〜13:10ごろ / 当日の混雑で前後",
+    detail: "地獄蒸しランチを楽しむか、当日の混雑次第で地獄めぐり前半を先に回る。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E5%9C%B0%E7%8D%84%E8%92%B8%E3%81%97%E5%B7%A5%E6%88%BF%E9%89%84%E8%BC%AA",
+    photoUrl: "https://jigokumushi.com/",
+    lat: 33.3158, lng: 131.4772, chip: "#fecdd3", chipText: "#881337",
   },
   {
-    id: "kamado",
-    name: "かまど地獄",
-    emoji: "🔥",
-    day: 1,
-    time: "12:40",
-    category: "地獄めぐり",
-    short: "湯けむりと演出を楽しむ",
-    detail: "複数の見どころがまとまった人気スポット。海地獄の近くにあるため、流れで立ち寄りやすい構成。",
-    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E3%81%8B%E3%81%BE%E3%81%A9%E5%9C%B0%E7%8D%84+%E5%88%A5%E5%BA%9C",
-    photoUrl: "https://www.beppu-jigoku.com/",
-    lat: 33.3163, lng: 131.4724, chip: "#fca5a5", chipText: "#7f1d1d",
-  },
-  {
-    id: "oniishi",
-    name: "鬼石坊主地獄",
-    emoji: "🪨",
+    id: "jigoku-second-half",
+    name: "地獄めぐり後半",
+    emoji: "🩵",
     day: 1,
     time: "13:20",
     category: "地獄めぐり",
-    short: "泥湯の景観を見る",
-    detail: "灰色の熱泥が沸き立つ独特の景観が特徴。近接エリアのため、徒歩でまとめて回る想定に向いている。",
-    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E9%AC%BC%E7%9F%B3%E5%9D%8A%E4%B8%BB%E5%9C%B0%E7%8D%84+%E5%88%A5%E5%BA%9C",
+    short: "地獄めぐり後半戦 / 13:20〜15:00ごろ",
+    detail: "13:20〜15:00ごろの後半戦。海地獄、かまど地獄、鬼石坊主地獄、血の池地獄、龍巻地獄を回る想定。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E6%B5%B7%E5%9C%B0%E7%8D%84+%E5%88%A5%E5%BA%9C",
     photoUrl: "https://www.beppu-jigoku.com/",
-    lat: 33.3153, lng: 131.4696, chip: "#d9f99d", chipText: "#365314",
+    lat: 33.3149, lng: 131.4729, chip: "#c7d2fe", chipText: "#312e81",
   },
   {
-    id: "chinoike",
-    name: "血の池地獄",
-    emoji: "🔴",
-    day: 1,
-    time: "14:10",
-    category: "地獄めぐり",
-    short: "赤い熱泥の名所",
-    detail: "鉄分を含む赤い池が印象的な地獄。龍巻地獄とセットで訪れやすい終盤の観光ポイント。",
-    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E8%A1%80%E3%81%AE%E6%B1%A0%E5%9C%B0%E7%8D%84+%E5%88%A5%E5%BA%9C",
-    photoUrl: "https://www.beppu-jigoku.com/",
-    lat: 33.3272, lng: 131.4782, chip: "#fecdd3", chipText: "#881337",
-  },
-  {
-    id: "tatsumaki",
-    name: "龍巻地獄",
-    emoji: "🌪️",
-    day: 1,
-    time: "14:40",
-    category: "地獄めぐり",
-    short: "間欠泉を見学",
-    detail: "一定間隔で噴き上がる間欠泉を見られるスポット。血の池地獄と並べて回ると移動効率がよい。",
-    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E9%BE%8D%E5%B7%BB%E5%9C%B0%E7%8D%84+%E5%88%A5%E5%BA%9C",
-    photoUrl: "https://www.beppu-jigoku.com/",
-    lat: 33.3269, lng: 131.4794, chip: "#c7d2fe", chipText: "#312e81",
-  },
-  {
-    id: "suginoi",
-    name: "杉乃井ホテル",
+    id: "suginoi-arrival",
+    name: "杉乃井ホテル 到着",
     emoji: "🏨",
     day: 1,
     time: "15:30",
     category: "宿泊",
-    short: "チェックインして休憩",
-    detail: "観光後の宿泊先。チェックイン後は温泉や館内施設でゆっくり過ごす流れを想定している。",
+    short: "15:30〜16:00ごろに到着",
+    detail: "1日目の最後は杉乃井ホテルへ到着。チェックインしてゆっくり過ごす。",
     mapUrl: "https://www.google.com/maps/search/?api=1&query=%E6%9D%89%E4%B9%83%E4%BA%95%E3%83%9B%E3%83%86%E3%83%AB+%E5%88%A5%E5%BA%9C",
     photoUrl: "https://suginoi.orixhotelsandresorts.com/",
     lat: 33.2833, lng: 131.4756, chip: "#a7f3d0", chipText: "#064e3b",
   },
   {
-    id: "toyoken",
-    name: "東洋軒",
+    id: "hotel-morning",
+    name: "杉乃井ホテルでゆっくり",
+    emoji: "🌅",
+    day: 2,
+    time: "08:00",
+    category: "宿泊",
+    short: "朝風呂 / 朝食 / 部屋でのんびり",
+    detail: "2日目の朝は杉乃井ホテルでゆっくり。朝風呂、朝食、部屋時間を楽しむ。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E6%9D%89%E4%B9%83%E4%BA%95%E3%83%9B%E3%83%86%E3%83%AB+%E5%88%A5%E5%BA%9C",
+    photoUrl: "https://suginoi.orixhotelsandresorts.com/",
+    lat: 33.2833, lng: 131.4756, chip: "#fef08a", chipText: "#713f12",
+  },
+  {
+    id: "hotel-stay-late",
+    name: "ホテルでダラダラ",
+    emoji: "🧖",
+    day: 2,
+    time: "10:00",
+    category: "宿泊",
+    short: "ホテル時間をしっかり楽しむ",
+    detail: "チェックアウトぎりぎりまでホテル時間をしっかり楽しむ予定。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E6%9D%89%E4%B9%83%E4%BA%95%E3%83%9B%E3%83%86%E3%83%AB+%E5%88%A5%E5%BA%9C",
+    photoUrl: "https://suginoi.orixhotelsandresorts.com/",
+    lat: 33.2833, lng: 131.4756, chip: "#ddd6fe", chipText: "#5b21b6",
+  },
+  {
+    id: "toyoken-lunch",
+    name: "東洋軒で とり天ランチ",
     emoji: "🍗",
     day: 2,
     time: "11:30",
     category: "食事",
-    short: "とり天で旅を締める",
-    detail: "翌日の食事スポット。別府名物のとり天を食べて旅を締める構成になっている。",
+    short: "11:30ごろ〜 とり天ランチ",
+    detail: "2日目の昼は東洋軒でとり天ランチ。別府名物を楽しむ。",
     mapUrl: "https://www.google.com/maps/search/?api=1&query=%E6%9D%B1%E6%B4%8B%E8%BB%92+%E5%88%A5%E5%BA%9C",
     photoUrl: "https://www.toyoken-beppu.co.jp/toriten/",
     lat: 33.3042, lng: 131.5002, chip: "#fef08a", chipText: "#713f12",
+  },
+  {
+    id: "leave-beppu",
+    name: "別府を出発 → 行橋へ",
+    emoji: "🚗",
+    day: 2,
+    time: "13:30",
+    category: "移動",
+    short: "昼すぎ〜午後に帰路へ",
+    detail: "昼すぎ〜午後に別府を出発して行橋へ向かう。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E5%88%A5%E5%BA%9C",
+    photoUrl: "https://www.google.com/search?tbm=isch&q=%E5%88%A5%E5%BA%9C",
+    lat: 33.2795, lng: 131.4979, chip: "#fdba74", chipText: "#9a3412",
+  },
+  {
+    id: "choco-pickup",
+    name: "チョコちゃんをお迎え",
+    emoji: "🐶",
+    day: 2,
+    time: "16:30",
+    category: "出発",
+    short: "帰宅前にチョコちゃんをお迎え",
+    detail: "帰宅前の最後の予定。行橋でチョコちゃんをお迎えする。",
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=%E8%A1%8C%E6%A9%8B",
+    photoUrl: "https://www.google.com/search?tbm=isch&q=%E8%A1%8C%E6%A9%8B",
+    lat: 33.72877, lng: 130.97031, chip: "#fecaca", chipText: "#991b1b",
   },
 ];
 
@@ -367,6 +406,12 @@ body {
   flex-shrink: 0;
 }
 .sel-name  { font-size: 14px; font-weight: 700; }
+.sel-name,
+.sel-short {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sel-short { font-size: 11px; color: var(--text2); margin-top: 2px; font-weight: 500; }
 .sel-open {
   margin-left: auto;
@@ -503,6 +548,9 @@ body {
   width: 100%;
   transition: background 0.1s;
   -webkit-tap-highlight-color: transparent;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 .li:active { background: var(--surface2); }
 .li.sel {
@@ -526,6 +574,9 @@ body {
   align-items: center;
   gap: 5px;
   margin-bottom: 2px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 .li-time { font-size: 11px; color: var(--text2); font-weight: 700; }
 .li-chip {
@@ -534,6 +585,7 @@ body {
   padding: 1px 7px;
   border-radius: 999px;
   letter-spacing: 0.03em;
+  flex-shrink: 0;
 }
 .li-chip.now {
   background: #fee2e2 !important;
@@ -542,6 +594,8 @@ body {
 .li-name {
   font-size: 14px;
   font-weight: 700;
+  display: block;
+  width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -551,9 +605,16 @@ body {
   color: var(--text2);
   margin-top: 1px;
   font-weight: 500;
+  display: block;
+  width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.li-main {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 .li-num {
   margin-left: auto;
@@ -1304,7 +1365,7 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
       {stopsData.map((s, i) => (
         <button key={s.id} className={`li${selId === s.id ? " sel" : ""}${currentStopId === s.id ? " now" : ""}`} onClick={() => (compact && onSelect ? onSelect(s.id) : onOpen(s.id))}>
           <div className="li-icon" style={{ background: s.chip + "66" }}>{s.emoji}</div>
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="li-main">
             <div className="li-row">
               <span className="li-time">{formatStopDay(s)} {s.time}</span>
               <span className={`li-chip${currentStopId === s.id ? " now" : ""}`} style={{ background: s.chip, color: s.chipText }}>{s.category}</span>
