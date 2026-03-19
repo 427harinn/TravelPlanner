@@ -1269,6 +1269,7 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
                 selectedId={selId}
                 position={[s.lat, s.lng]}
                 icon={createMapIcon(s, selId === id, currentStopId === id, route.indexOf(id) + 1)}
+                zIndexOffset={selId === id ? 1000 : 0}
                 eventHandlers={{
                   click: () => onPick(id),
                   dblclick: () => onOpen(id),
