@@ -14,9 +14,11 @@ import {
   collection,
   deleteDoc,
   doc,
-  getFirestore,
+  initializeFirestore,
   limit,
   onSnapshot,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   query,
   serverTimestamp,
   setDoc,
@@ -45,7 +47,11 @@ const requiredKeys = [
 export const firebaseEnabled = requiredKeys.every(Boolean);
 
 export const app = firebaseEnabled ? initializeApp(firebaseConfig) : null;
-export const db = app ? getFirestore(app) : null;
+export const db = app
+  ? initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    })
+  : null;
 export const auth = app ? getAuth(app) : null;
 
 const googleProvider = auth ? new GoogleAuthProvider() : null;

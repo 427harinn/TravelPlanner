@@ -606,6 +606,56 @@ body {
   color: var(--text2);
   font-weight: 700;
 }
+.travel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 10px 1px 30px;
+  font-size: 11px;
+  color: var(--text2);
+  font-weight: 600;
+  min-width: 0;
+}
+.travel-row-main {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.travel-row-warn {
+  color: #dc2626;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+.update-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 6000;
+  background: #1c1917;
+  color: #fff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.update-banner button {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font);
+}
 .schedule-toggle-sub {
   margin-top: 2px;
   font-size: 11px;
@@ -1301,6 +1351,8 @@ function EditorApp() {
           category: args.category || "観光",
           short: args.short || "",
           detail: args.detail || "",
+          access: args.access || "",
+          travelMinutes: Number.isFinite(args.travelMinutes) ? String(args.travelMinutes) : "",
           lat,
           lng,
         };
@@ -1364,6 +1416,8 @@ function EditorApp() {
         if (typeof args.emoji === "string") draft.emoji = args.emoji;
         if (typeof args.short === "string") draft.short = args.short;
         if (typeof args.detail === "string") draft.detail = args.detail;
+        if (typeof args.access === "string") draft.access = args.access;
+        if (Number.isFinite(args.travelMinutes)) draft.travelMinutes = String(args.travelMinutes);
         if (typeof args.mapUrl === "string") draft.mapUrl = args.mapUrl;
         if (typeof args.photoUrl === "string") draft.photoUrl = args.photoUrl;
         if (args.clearCoordinates === true) {
@@ -1901,6 +1955,7 @@ function EditorApp() {
     <>
       <style>{css}</style>
       <div className="shell">
+        <UpdateBanner />
         <div className="hdr">
           <div className="hdr-icon">{selectedPlan?.icon || "🧳"}</div>
           <div className="hdr-main">
@@ -2003,6 +2058,41 @@ function EditorApp() {
   );
 }
 
+function useSwUpdate() {
+  const [updateReady, setUpdateReady] = useState(false);
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return undefined;
+    if (!navigator.serviceWorker.controller) return undefined;
+    const onControllerChange = () => setUpdateReady(true);
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        navigator.serviceWorker
+          .getRegistration()
+          .then((registration) => (registration ? registration.update() : null))
+          .catch(() => null);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+  return updateReady;
+}
+
+function UpdateBanner() {
+  const updateReady = useSwUpdate();
+  if (!updateReady) return null;
+  return (
+    <div className="update-banner">
+      <span>新しいバージョンがあります</span>
+      <button type="button" onClick={() => window.location.reload()}>更新する</button>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
@@ -2102,6 +2192,7 @@ function ShareApp() {
     <>
       <style>{css}</style>
       <div className="shell">
+        <UpdateBanner />
         <div className="hdr">
           <div className="hdr-icon">{plan?.icon || "🗺️"}</div>
           <div className="hdr-main">
@@ -2367,24 +2458,42 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
   );
 }
 
+function stopAbsMinutes(stop) {
+  return (Math.max(1, stop.day || 1) - 1) * 1440 + timeToMinutes(stop.time || "0:00");
+}
+
 function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact = false }) {
   return (
     <div className={compact ? "" : "list-wrap"}>
-      {stopsData.map((s, i) => (
-        <button key={s.id} className={`li${selId === s.id ? " sel" : ""}${currentStopId === s.id ? " now" : ""}`} onClick={() => (compact && onSelect ? onSelect(s.id) : onOpen(s.id))} onDoubleClick={() => onOpen(s.id)}>
-          <div className="li-icon" style={{ background: s.chip + "66" }}>{s.emoji}</div>
-          <div className="li-main">
-            <div className="li-row">
-              <span className="li-time">{formatStopDay(s)} {s.time}</span>
-              <span className={`li-chip${currentStopId === s.id ? " now" : ""}`} style={{ background: s.chip, color: s.chipText }}>{s.category}</span>
-              {currentStopId === s.id ? <span className="now-badge">NOW</span> : null}
-            </div>
-            <div className="li-name">{s.name}</div>
-            <div className="li-short">{s.short}</div>
-          </div>
-          <div className="li-num">{i + 1}</div>
-        </button>
-      ))}
+      {stopsData.map((s, i) => {
+        const prev = i > 0 ? stopsData[i - 1] : null;
+        const showTravel = Boolean(prev && (s.travelMinutes || s.access));
+        const gap = prev ? stopAbsMinutes(s) - stopAbsMinutes(prev) : null;
+        const tight = Boolean(showTravel && s.travelMinutes && gap !== null && gap >= 0 && gap < s.travelMinutes);
+        return (
+          <React.Fragment key={s.id}>
+            {showTravel ? (
+              <div className="travel-row">
+                <span className="travel-row-main">🚃 {s.travelMinutes ? `移動 約${s.travelMinutes}分` : "移動"}{s.access ? ` ・ ${s.access}` : ""}</span>
+                {tight ? <span className="travel-row-warn">⚠️ 間隔{gap}分</span> : null}
+              </div>
+            ) : null}
+            <button className={`li${selId === s.id ? " sel" : ""}${currentStopId === s.id ? " now" : ""}`} onClick={() => (compact && onSelect ? onSelect(s.id) : onOpen(s.id))} onDoubleClick={() => onOpen(s.id)}>
+              <div className="li-icon" style={{ background: s.chip + "66" }}>{s.emoji}</div>
+              <div className="li-main">
+                <div className="li-row">
+                  <span className="li-time">{formatStopDay(s)} {s.time}</span>
+                  <span className={`li-chip${currentStopId === s.id ? " now" : ""}`} style={{ background: s.chip, color: s.chipText }}>{s.category}</span>
+                  {currentStopId === s.id ? <span className="now-badge">NOW</span> : null}
+                </div>
+                <div className="li-name">{s.name}</div>
+                <div className="li-short">{s.short}</div>
+              </div>
+              <div className="li-num">{i + 1}</div>
+            </button>
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -2419,6 +2528,13 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
             </a>
           ) : null}
         </div>
+        {spot.travelMinutes || spot.access ? (
+          <div className="sheet-box">
+            <div className="sheet-box-lbl">ここへの移動</div>
+            {spot.travelMinutes ? <div className="sheet-short">🚃 所要時間 約{spot.travelMinutes}分</div> : null}
+            {spot.access ? <div className="sheet-detail">{spot.access}</div> : null}
+          </div>
+        ) : null}
         {onAddAtPlace ? (
           <button className="btn-a" style={{ width: "100%", marginTop: 2, marginBottom: 12, background: "var(--surface)", border: "1.5px solid var(--accent)", color: "var(--accent)" }} onClick={onAddAtPlace}>
             📍 この場所の予定を追加
@@ -2568,6 +2684,18 @@ function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDele
           <div className="editor-field">
             <label>詳細</label>
             <textarea className="editor-textarea" value={draft.detail} onChange={(e) => onChange("detail", e.target.value)} />
+          </div>
+
+          <div className="editor-group-lbl">移動（ここへの行き方）</div>
+          <div className="editor-row2">
+            <div className="editor-field">
+              <label>所要時間（分）</label>
+              <input className="editor-input" type="number" min="0" placeholder="30" value={draft.travelMinutes} onChange={(e) => onChange("travelMinutes", e.target.value)} />
+            </div>
+            <div className="editor-field">
+              <label>移動メモ</label>
+              <input className="editor-input" placeholder="京葉線で新浦安→徒歩7分" value={draft.access} onChange={(e) => onChange("access", e.target.value)} />
+            </div>
           </div>
 
           <div className="editor-status">{geoState.message}</div>
@@ -3248,6 +3376,8 @@ function createStopDraft(base, forcedDay) {
     category,
     short: base?.short || "",
     detail: base?.detail || "",
+    access: base?.access || "",
+    travelMinutes: base?.travelMinutes != null ? String(base.travelMinutes) : "",
     mapUrl: base?.mapUrl || "",
     photoUrl: base?.photoUrl || "",
     lat: base?.lat != null ? String(base.lat) : "",
@@ -3373,6 +3503,8 @@ function createStopDraftFixed(base, forcedDay) {
     category,
     short: base?.short || "",
     detail: base?.detail || "",
+    access: base?.access || "",
+    travelMinutes: base?.travelMinutes != null ? String(base.travelMinutes) : "",
     mapUrl: base?.mapUrl || "",
     photoUrl: base?.photoUrl || "",
     lat: base?.lat != null ? String(base.lat) : "",
@@ -3397,6 +3529,8 @@ function normalizeStopDraftFixed(draft, existingStop) {
     category,
     short: draft.short.trim() || safeName,
     detail: draft.detail.trim() || "",
+    access: (draft.access || "").trim(),
+    travelMinutes: (() => { const v = Number.parseInt(draft.travelMinutes, 10); return Number.isFinite(v) && v > 0 ? v : null; })(),
     mapUrl: draft.mapUrl.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeName)}`,
     photoUrl: draft.photoUrl.trim() || `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(safeName)}`,
     lat: Number.isFinite(lat) ? lat : null,
@@ -3431,6 +3565,8 @@ function hydratePlanDataFixed(plan) {
           category: normalizeCategoryValueFixed(stop?.category),
           lat: Number.isFinite(stop?.lat) ? stop.lat : null,
           lng: Number.isFinite(stop?.lng) ? stop.lng : null,
+          access: typeof stop?.access === "string" ? stop.access : "",
+          travelMinutes: Number.isFinite(stop?.travelMinutes) ? stop.travelMinutes : null,
           memos: Array.isArray(stop?.memos) ? stop.memos : [],
         })))
       : [],
