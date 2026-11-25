@@ -2001,7 +2001,8 @@ function ShareApp() {
           onEdit={() => setEditHelpOpen(true)}
           canEdit={true}
           memoError={memoError}
-          onAddMemo={shareAuthUser ? async (text) => {
+          memoNote={!shareAuthUser ? "メモの追加はログインすると使えます（編集者のみ）" : "メモの追加は編集者のみできます"}
+          onAddMemo={shareAuthUser && plan && ((plan.ownerEmail || "").toLowerCase() === (shareAuthUser.email || "").toLowerCase() || (plan.editorEmails || []).map((e) => e.toLowerCase()).includes((shareAuthUser.email || "").toLowerCase())) ? async (text) => {
             const memo = { id: `memo-${Math.random().toString(36).slice(2, 9)}`, text, authorEmail: shareAuthUser.email || "", createdAt: new Date().toISOString() };
             const nextPlan = {
               ...plan,
@@ -2218,7 +2219,7 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
   );
 }
 
-function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoError = "", onAddAtPlace = null }) {
+function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoError = "", memoNote = "", onAddAtPlace = null }) {
   const [memoText, setMemoText] = useState("");
   const [memoFormOpen, setMemoFormOpen] = useState(false);
   const memos = Array.isArray(spot.memos) ? spot.memos : [];
@@ -2301,7 +2302,7 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
               </button>
             )
           ) : (
-            <div className="sheet-detail" style={{ marginTop: 6 }}>メモの追加はログインすると使えます</div>
+            <div className="sheet-detail" style={{ marginTop: 6 }}>{memoNote || "メモの追加はログインすると使えます"}</div>
           )}
         </div>
       </div>
