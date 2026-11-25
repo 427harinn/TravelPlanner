@@ -561,12 +561,14 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px 16px 28px;
 }
 .schedule-list-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
 .schedule-toggle {
@@ -585,6 +587,24 @@ body {
   font-size: 14px;
   font-weight: 700;
 }
+.schedule-title-btn {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  margin: -4px -2px;
+  font-family: var(--font);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+.schedule-expand-hint {
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 700;
+}
 .schedule-toggle-sub {
   margin-top: 2px;
   font-size: 11px;
@@ -599,6 +619,7 @@ body {
   border-top: 1px solid var(--border);
   padding: 8px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px;
 }
 
@@ -2318,7 +2339,10 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
 
       <div className="schedule-panel">
         <div className="schedule-head">
-          <div className="schedule-toggle-title">予定一覧</div>
+          <button type="button" className="schedule-toggle-title schedule-title-btn" onClick={() => setListFull(true)}>
+            予定一覧
+            <span className="schedule-expand-hint">⤢</span>
+          </button>
           {canEdit ? (
             <button className="schedule-action primary" style={{ padding: "8px 12px" }} onClick={onCreateStop}>
               ＋予定を追加
@@ -2327,7 +2351,7 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
         </div>
         <div className="schedule-list-scroll">
           <div className="schedule-body" style={{ borderTop: "none", paddingTop: 0 }}>
-            <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={(id) => { onPick(id); setListFull(true); }} compact />
+            <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onFocusStop} compact />
           </div>
         </div>
       </div>
