@@ -326,9 +326,10 @@ body {
   font-size: 21px;
   flex-shrink: 0;
 }
-.hdr-title { font-size: 16px; font-weight: 700; line-height: 1.25; }
-.hdr-sub   { font-size: 11px; color: var(--text2); margin-top: 1px; font-weight: 500; }
-.hdr-live  { font-size: 10px; color: var(--accent); margin-top: 4px; font-weight: 700; }
+.hdr-title { font-size: 16px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr-sub   { font-size: 11px; color: var(--text2); margin-top: 1px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr-main  { flex: 1; min-width: 0; }
+.hdr-live  { font-size: 10px; color: var(--accent); margin-top: 4px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hdr-pill {
   background: var(--accent);
   color: #fff;
@@ -1895,7 +1896,7 @@ function EditorApp() {
       <div className="shell">
         <div className="hdr">
           <div className="hdr-icon">{selectedPlan?.icon || "🧳"}</div>
-          <div>
+          <div className="hdr-main">
             <div className="hdr-title">{selectedPlan?.name || "旅行プラン"}</div>
             <div className="hdr-sub">{selectedPlan?.description || "説明未設定"}</div>
             <div className="hdr-live">
@@ -2096,7 +2097,7 @@ function ShareApp() {
       <div className="shell">
         <div className="hdr">
           <div className="hdr-icon">{plan?.icon || "🗺️"}</div>
-          <div>
+          <div className="hdr-main">
             <div className="hdr-title">{plan?.name || "旅行プラン"}</div>
             <div className="hdr-sub">{plan?.description || "公開中の旅行プランです"}</div>
             <div className="hdr-live">
