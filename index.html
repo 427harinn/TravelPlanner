@@ -14,38 +14,6 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
-      // TEMP DIAGNOSTIC (remove after white-screen investigation)
-      (function () {
-        function show(text) {
-          var el = document.getElementById("err-overlay");
-          if (!el) {
-            el = document.createElement("div");
-            el.id = "err-overlay";
-            el.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:99999;background:#fff;color:#b91c1c;font:11px/1.5 monospace;white-space:pre-wrap;max-height:60vh;overflow:auto;padding:8px;border-bottom:2px solid #b91c1c;";
-            document.body.appendChild(el);
-          }
-          if (!el.textContent) el.textContent = String(text).slice(0, 4000);
-        }
-        window.addEventListener("error", function (e) {
-          show("window.onerror: " + (e.message || "") + "\n" + ((e.error && e.error.stack) || ""));
-        });
-        window.addEventListener("unhandledrejection", function (e) {
-          var r = e.reason;
-          show("unhandledrejection: " + ((r && (r.stack || r.message)) || r || ""));
-        });
-        var origError = console.error.bind(console);
-        console.error = function () {
-          try {
-            var first = arguments[0];
-            if (first && ("" + first).indexOf("The above error occurred") !== -1 || (first instanceof Error)) {
-              show("console.error: " + ((first && (first.stack || first.message)) || first));
-            }
-          } catch (_) {}
-          return origError.apply(null, arguments);
-        };
-      })();
-    </script>
-    <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("./sw.js").catch(() => {});
