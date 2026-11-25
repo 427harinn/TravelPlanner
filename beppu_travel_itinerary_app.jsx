@@ -2190,7 +2190,7 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
                   dblclick: () => onOpen(id),
                 }}
               >
-                <Popup autoPan={false}>
+                <Popup autoPan autoPanPadding={[16, 16]}>
                   <div style={{ minWidth: 170 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "#78716c", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                       {s.time} · {s.category}
@@ -2921,24 +2921,35 @@ function MapSelectionSync({ spot, currentSpot, positions, routeKey, lockedRef, o
 
   React.useEffect(() => {
     if (!hasInitialized.current) {
-      // 初期表示は1回だけ、レイアウト確定後に決める。
-      // いまの予定があればそこを中心に、無ければ全体が入る表示にする（全体フィットとセンタリングを同時にやらない）
+      // 初期表示は1回だけ。まず全体が入る倍率で見せてから、選択中の予定（いまの予定優先、無ければ選択中＝最初の予定）に寄せて真ん中に置く
+      let flyTimer;
       const timer = window.setTimeout(() => {
         map.invalidateSize();
         if (lockedRef && lockedRef.current) {
           // 手動で固定された表示範囲を優先し、初期移動をしない
-        } else if (hasCoords(currentSpot)) {
-          suppressRef.current = true;
-          map.setView(getOffsetCenter(map, currentSpot, 90, 13), 13, { animate: false });
         } else if (positions.length > 0) {
           suppressRef.current = true;
           map.fitBounds(positions, { padding: [30, 30] });
+          const focus = hasCoords(currentSpot) ? currentSpot : (hasCoords(spot) ? spot : null);
+          if (focus) {
+            lastFlownId.current = focus.id;
+            flyTimer = window.setTimeout(() => {
+              if (lockedRef && lockedRef.current) return;
+              suppressRef.current = true;
+              map.flyTo(getOffsetCenter(map, focus, 90, 13), 13, { animate: true, duration: 0.8 });
+            }, 650);
+          }
         }
         fittedRouteKey.current = routeKey;
         hasInitialized.current = true;
-        lastFlownId.current = (hasCoords(currentSpot) ? currentSpot : spot)?.id || "";
+        if (!lastFlownId.current) {
+          lastFlownId.current = (hasCoords(currentSpot) ? currentSpot : spot)?.id || "";
+        }
       }, 180);
-      return () => window.clearTimeout(timer);
+      return () => {
+        window.clearTimeout(timer);
+        if (flyTimer) window.clearTimeout(flyTimer);
+      };
     }
 
     // 予定の並び（ID列）が変わったときだけ全体表示する。メモ追加や文言編集では地図を動かさない
