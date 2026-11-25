@@ -424,8 +424,10 @@ body {
 /* scroll */
 .scroll {
   flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── MAP ── */
@@ -434,6 +436,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 9px;
+  flex: 1;
+  min-height: 0;
 }
 
 .map-canvas {
@@ -576,6 +580,23 @@ body {
   border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.schedule-head {
+  padding: 11px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.schedule-list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .schedule-toggle {
   width: 100%;
@@ -2128,48 +2149,27 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
 
       <div className="sel-card">
         <div className={`sel-icon${currentStopId === selId ? " now-ring" : ""}`} style={{ background: sel.chip + "55" }}>{sel.emoji}</div>
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div className="sel-name">{sel.name}</div>
-          <div className="sel-short">{sel.short}</div>
         </div>
         {currentStopId === selId ? <div className="now-badge">NOW</div> : null}
         <button className="sel-open" onClick={() => onOpen(selId)}>詳細</button>
       </div>
 
-      <div className="info-grid">
-        {[
-          ["⏰ 時刻", `${formatStopDay(sel)} ${sel.time}`],
-          ["🏷 カテゴリ", sel.category],
-        ].map(([lbl, val]) => (
-          <div className="mini" key={lbl}>
-            <div className="mini-lbl">{lbl}</div>
-            <div className="mini-val">{val}</div>
-          </div>
-        ))}
-      </div>
-
       <div className="schedule-panel">
-        <button className="schedule-toggle" onClick={onToggleSchedule}>
-          <div>
-            <div className="schedule-toggle-title">予定一覧</div>
-            <div className="schedule-toggle-sub">地図の下でまとめて確認できます</div>
-          </div>
-          <div className="schedule-toggle-mark">{scheduleOpen ? "▾" : "▸"}</div>
-        </button>
-        <div className="schedule-body">
+        <div className="schedule-head">
+          <div className="schedule-toggle-title">予定一覧</div>
           {canEdit ? (
-            <div className="schedule-actions">
-            <button className="schedule-action primary" onClick={onCreateStop}>
+            <button className="schedule-action primary" style={{ padding: "8px 12px" }} onClick={onCreateStop}>
               ＋予定を追加
             </button>
-          </div>
           ) : null}
         </div>
-        {scheduleOpen ? (
-          <div className="schedule-body">
+        <div className="schedule-list-scroll">
+          <div className="schedule-body" style={{ borderTop: "none", paddingTop: 0 }}>
             <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onFocusStop} compact />
           </div>
-        ) : null}
+        </div>
       </div>
     </div>
   );
