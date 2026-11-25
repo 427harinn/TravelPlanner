@@ -5,6 +5,7 @@ import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
 import {
   firebaseEnabled,
   resetPassword,
+  savePlan,
   savePlans,
   signInWithEmail,
   signInWithGoogle,
@@ -1708,7 +1709,20 @@ function EditorApp() {
         </div>
       </div>
 
-      {sheet && <Sheet spot={sel} onClose={() => setSheet(false)} onEdit={() => openEdit(sel.id)} />}
+      {sheet && (
+        <Sheet
+          spot={sel}
+          onClose={() => setSheet(false)}
+          onEdit={() => openEdit(sel.id)}
+          onAddMemo={authUser ? (text) => {
+            const memo = { id: `memo-${Math.random().toString(36).slice(2, 9)}`, text, authorEmail: authUser.email || "", createdAt: new Date().toISOString() };
+            setPlans((prev) => prev.map((plan) => plan.id !== selectedPlan.id ? plan : {
+              ...plan,
+              stops: plan.stops.map((stop) => stop.id !== sel.id ? stop : { ...stop, memos: [...(Array.isArray(stop.memos) ? stop.memos : []), memo] }),
+            }));
+          } : null}
+        />
+      )}
       {editorMode && (
         <EditorSheet
           mode={editorMode}
@@ -1767,6 +1781,8 @@ export default function App() {
 function ShareApp() {
   const { shareId = "" } = useParams();
   const [plan, setPlan] = useState(null);
+  const [shareAuthUser, setShareAuthUser] = useState(null);
+  const [memoError, setMemoError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selId, setSelId] = useState("");
@@ -1782,6 +1798,8 @@ function ShareApp() {
   const currentStop = currentStopId ? spotMap[currentStopId] : null;
   const sel = spotMap[selId] || stopsData[0] || null;
   const tripDateLabel = useMemo(() => formatTripDateRange(plan), [plan]);
+
+  useEffect(() => subscribeToAuthState((user) => setShareAuthUser(user)), []);
 
   useEffect(() => {
     setLoading(true);
@@ -1883,7 +1901,29 @@ function ShareApp() {
         </div>
       </div>
 
-      {sheet && sel ? <Sheet spot={sel} onClose={() => setSheet(false)} onEdit={() => setEditHelpOpen(true)} canEdit={true} /> : null}
+      {sheet && sel ? (
+        <Sheet
+          spot={sel}
+          onClose={() => setSheet(false)}
+          onEdit={() => setEditHelpOpen(true)}
+          canEdit={true}
+          memoError={memoError}
+          onAddMemo={shareAuthUser ? async (text) => {
+            const memo = { id: `memo-${Math.random().toString(36).slice(2, 9)}`, text, authorEmail: shareAuthUser.email || "", createdAt: new Date().toISOString() };
+            const nextPlan = {
+              ...plan,
+              stops: plan.stops.map((stop) => stop.id !== sel.id ? stop : { ...stop, memos: [...(Array.isArray(stop.memos) ? stop.memos : []), memo] }),
+            };
+            try {
+              setMemoError("");
+              await savePlan(plan.id, nextPlan);
+              setPlan(nextPlan);
+            } catch (error) {
+              setMemoError("メモを保存できませんでした（このプランへの書き込み権限がない可能性があります）");
+            }
+          } : null}
+        />
+      ) : null}
       {editHelpOpen ? (
         <ShareEditHelpSheet
           ownerEmail={plan?.ownerEmail || ""}
@@ -1925,15 +1965,16 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
     );
   }
 
-  const route = useMemo(() => stopsData.map(s => s.id), [stopsData]);
+  const route = useMemo(() => stopsData.filter((stop) => hasCoords(stop)).map(s => s.id), [stopsData]);
   const positions = useMemo(() => route.map(id => [spotMap[id].lat, spotMap[id].lng]), [route, spotMap]);
   const currentSpot = currentStopId ? spotMap[currentStopId] : null;
-  const focusSpot = currentSpot || sel;
+  const focusSpot = [currentSpot, sel, ...stopsData].find((stop) => hasCoords(stop)) || null;
+  const mapCenter = focusSpot ? [focusSpot.lat, focusSpot.lng] : [35.6812, 139.7671];
 
   return (
     <div className="map-wrap">
       <div className="map-canvas">
-        <MapContainer key={planId} center={[focusSpot.lat, focusSpot.lng]} zoom={11} scrollWheelZoom className="leaflet-shell">
+        <MapContainer key={planId} center={mapCenter} zoom={11} scrollWheelZoom className="leaflet-shell">
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -1964,6 +2005,21 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
                     </div>
                     <div style={{ marginTop: 4, fontSize: 14, fontWeight: 700, color: "#1c1917" }}>{s.name}</div>
                     <div style={{ marginTop: 3, fontSize: 12, color: "#78716c", fontWeight: 500 }}>{s.short}</div>
+                    {samePlaceStops(stopsData, s).length > 1 ? (
+                      <div style={{ marginTop: 8, borderTop: "1px solid #e7e5e0", paddingTop: 6 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#78716c" }}>この場所の予定</div>
+                        {samePlaceStops(stopsData, s).map((placeStop) => (
+                          <button
+                            key={placeStop.id}
+                            type="button"
+                            onClick={() => onOpen(placeStop.id)}
+                            style={{ display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", padding: "3px 0", fontSize: 12, color: "#1c1917", cursor: "pointer", fontFamily: "var(--font)" }}
+                          >
+                            {placeStop.day}日目 {placeStop.time} {placeStop.name}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => onOpen(id)}
@@ -1988,8 +2044,8 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
             );
           })}
           <MapSelectionSync
-            spot={sel}
-            currentSpot={currentSpot}
+            spot={focusSpot}
+            currentSpot={hasCoords(currentSpot) ? currentSpot : null}
             positions={positions}
           />
         </MapContainer>
@@ -2066,7 +2122,9 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
   );
 }
 
-function Sheet({ spot, onClose, onEdit, canEdit = true }) {
+function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoError = "" }) {
+  const [memoText, setMemoText] = useState("");
+  const memos = Array.isArray(spot.memos) ? spot.memos : [];
   return (
     <div className="backdrop" onClick={onClose}>
       <div className="sheet" onClick={e => e.stopPropagation()}>
@@ -2083,6 +2141,42 @@ function Sheet({ spot, onClose, onEdit, canEdit = true }) {
           <div className="sheet-box-lbl">まとめ</div>
           <div className="sheet-short">{spot.short}</div>
           <div className="sheet-detail">{spot.detail}</div>
+        </div>
+        <div className="sheet-box">
+          <div className="sheet-box-lbl">みんなのメモ</div>
+          {memos.length === 0 ? <div className="sheet-detail">まだメモはありません</div> : null}
+          {memos.map((memo) => (
+            <div key={memo.id} style={{ marginTop: 6 }}>
+              <div className="sheet-detail" style={{ whiteSpace: "pre-wrap" }}>{memo.text}</div>
+              <div style={{ fontSize: 11, color: "#a8a29e" }}>
+                {memo.authorEmail || "unknown"} · {memo.createdAt ? new Date(memo.createdAt).toLocaleString("ja-JP") : ""}
+              </div>
+            </div>
+          ))}
+          {onAddMemo ? (
+            <div style={{ marginTop: 8 }}>
+              <textarea
+                className="editor-textarea"
+                placeholder="メモを書く（電車の時刻など）"
+                value={memoText}
+                onChange={(e) => setMemoText(e.target.value)}
+              />
+              {memoError ? <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>{memoError}</div> : null}
+              <button
+                className="btn-a secondary"
+                style={{ marginTop: 6 }}
+                onClick={() => {
+                  if (!memoText.trim()) return;
+                  onAddMemo(memoText.trim());
+                  setMemoText("");
+                }}
+              >
+                メモを追加
+              </button>
+            </div>
+          ) : (
+            <div className="sheet-detail" style={{ marginTop: 6 }}>メモの追加はログインすると使えます</div>
+          )}
         </div>
         <div className="sheet-btns">
           <a href={spot.mapUrl} target="_blank" rel="noreferrer" className="btn-a primary">🗺 マップ</a>
@@ -2571,11 +2665,14 @@ function MapSelectionSync({ spot, currentSpot, positions }) {
   }, [map]);
 
   React.useEffect(() => {
-    map.fitBounds(positions, { padding: [30, 30] });
+    if (positions.length > 0) {
+      map.fitBounds(positions, { padding: [30, 30] });
+    }
   }, [map, positions]);
 
   React.useEffect(() => {
     const initialSpot = currentSpot || spot;
+    if (!hasCoords(initialSpot) || !hasCoords(spot)) return;
 
     if (!hasInitialized.current) {
       map.setView(getOffsetCenter(map, initialSpot, 120), 12, { animate: false });
@@ -2767,8 +2864,9 @@ function normalizeStopDraft(draft, existingStop) {
     detail: draft.detail.trim() || "詳細未設定",
     mapUrl: draft.mapUrl.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeName)}`,
     photoUrl: draft.photoUrl.trim() || `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(safeName)}`,
-    lat: Number.isFinite(lat) ? lat : 33.3158,
-    lng: Number.isFinite(lng) ? lng : 131.4772,
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
+    memos: Array.isArray(existingStop?.memos) ? existingStop.memos : [],
     chip,
     chipText,
   };
@@ -2866,11 +2964,23 @@ function normalizeStopDraftFixed(draft, existingStop) {
     detail: draft.detail.trim() || "",
     mapUrl: draft.mapUrl.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeName)}`,
     photoUrl: draft.photoUrl.trim() || `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(safeName)}`,
-    lat: Number.isFinite(lat) ? lat : 33.3158,
-    lng: Number.isFinite(lng) ? lng : 131.4772,
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
+    memos: Array.isArray(existingStop?.memos) ? existingStop.memos : [],
     chip,
     chipText,
   };
+}
+
+function hasCoords(stop) {
+  return Number.isFinite(stop?.lat) && Number.isFinite(stop?.lng);
+}
+
+function samePlaceStops(stopsData, target) {
+  if (!hasCoords(target)) return [];
+  return stopsData.filter(
+    (stop) => hasCoords(stop) && Math.abs(stop.lat - target.lat) < 0.0005 && Math.abs(stop.lng - target.lng) < 0.0005,
+  );
 }
 
 function hydratePlanDataFixed(plan) {
@@ -2881,7 +2991,13 @@ function hydratePlanDataFixed(plan) {
     ownerEmail: plan?.ownerEmail || "",
     editorEmails: Array.isArray(plan?.editorEmails) ? plan.editorEmails.map((email) => String(email).toLowerCase()) : [],
     stops: Array.isArray(plan?.stops)
-      ? sortStops(plan.stops.map((stop) => ({ ...stop, category: normalizeCategoryValueFixed(stop?.category) })))
+      ? sortStops(plan.stops.map((stop) => ({
+          ...stop,
+          category: normalizeCategoryValueFixed(stop?.category),
+          lat: Number.isFinite(stop?.lat) ? stop.lat : null,
+          lng: Number.isFinite(stop?.lng) ? stop.lng : null,
+          memos: Array.isArray(stop?.memos) ? stop.memos : [],
+        })))
       : [],
   };
 }
