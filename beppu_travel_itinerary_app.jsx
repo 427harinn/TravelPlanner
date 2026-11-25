@@ -176,73 +176,6 @@ const beppuStops = [
   },
 ];
 
-const initialPlans = [
-  {
-    id: "beppu-trip",
-    icon: "♨️",
-    name: "別府旅行（サンプル）",
-    description: "地獄めぐり＆杉乃井ホテル泊",
-    startDate: "2026-01-10",
-    stops: beppuStops,
-  },
-  {
-    id: "yamaguchi-trip",
-    icon: "⛩️",
-    name: "山口旅行（サンプル）",
-    description: "角島と下関を回る週末プラン",
-    startDate: "2026-02-14",
-    stops: [
-      {
-        id: "shin-yamaguchi",
-        name: "新山口駅",
-        emoji: "🚄",
-        day: 1,
-        time: "9:30",
-        category: "出発",
-        short: "朝に新山口へ到着",
-        detail: "新山口駅を起点にレンタカーで移動開始。",
-        mapUrl: "https://www.google.com/maps/search/?api=1&query=%E6%96%B0%E5%B1%B1%E5%8F%A3%E9%A7%85",
-        photoUrl: "https://www.google.com/search?tbm=isch&q=%E6%96%B0%E5%B1%B1%E5%8F%A3%E9%A7%85",
-        lat: 34.0489,
-        lng: 131.386,
-        chip: "#e2e8f0",
-        chipText: "#475569",
-      },
-      {
-        id: "tsunoshima",
-        name: "角島大橋",
-        emoji: "🌉",
-        day: 1,
-        time: "12:00",
-        category: "観光",
-        short: "海の上を走る絶景スポット",
-        detail: "この旅行のメインスポット。橋と海の景色を楽しむ。",
-        mapUrl: "https://www.google.com/maps/search/?api=1&query=%E8%A7%92%E5%B3%B6%E5%A4%A7%E6%A9%8B",
-        photoUrl: "https://www.google.com/search?tbm=isch&q=%E8%A7%92%E5%B3%B6%E5%A4%A7%E6%A9%8B",
-        lat: 34.3453,
-        lng: 130.8397,
-        chip: "#bae6fd",
-        chipText: "#0c4a6e",
-      },
-      {
-        id: "shimonoseki-stay",
-        name: "下関市内ホテル",
-        emoji: "🏨",
-        day: 1,
-        time: "18:00",
-        category: "宿泊",
-        short: "市内にチェックイン",
-        detail: "夜は下関市内で宿泊。",
-        mapUrl: "https://www.google.com/maps/search/?api=1&query=%E4%B8%8B%E9%96%A2%E9%A7%85",
-        photoUrl: "https://www.google.com/search?tbm=isch&q=%E4%B8%8B%E9%96%A2",
-        lat: 33.9502,
-        lng: 130.9231,
-        chip: "#a7f3d0",
-        chipText: "#064e3b",
-      },
-    ],
-  },
-];
 
 const chipPalette = [
   ["#e2e8f0", "#475569"],
@@ -440,6 +373,22 @@ body {
   min-height: 0;
 }
 
+.map-fit-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
 .map-canvas {
   position: relative;
   border-radius: 18px;
@@ -1225,8 +1174,8 @@ body {
 `;
 
 function EditorApp() {
-  const [plans, setPlans] = useState(() => initialPlans.map(hydratePlanDataFixed));
-  const [selectedPlanId, setSelectedPlanId] = useState(() => initialPlans[0].id);
+  const [plans, setPlans] = useState([]);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
   const [selId, setSelId] = useState("jigokuMushi");
   const [sheet, setSheet] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -1369,7 +1318,7 @@ function EditorApp() {
         hasLoadedRemotePlans.current = true;
         const hydratedPlans = Array.isArray(remotePlans) && remotePlans.length > 0
           ? remotePlans.map(hydratePlanDataFixed)
-          : initialPlans.map(hydratePlanDataFixed);
+          : [];
         const remoteJson = JSON.stringify(hydratedPlans);
         lastSyncedPlansJson.current = remoteJson;
         setPlans((prev) => {
@@ -1576,8 +1525,11 @@ function EditorApp() {
   */
   function openCreate() {
     setSheet(false);
+    const base = spotMap[selId] || stopsData[stopsData.length - 1];
+    setGeoState({ loading: false, message: "" });
+    setSearchResults([]);
     setDraft({
-      ...createStopDraftFixed(null, 1),
+      ...createStopDraftFixed(null, base?.day ?? 1),
       category: "蜃ｺ逋ｺ",
       emoji: getCategoryEmojiFixed("\u51fa\u767a"),
       time: "09:00",
@@ -1592,6 +1544,8 @@ function EditorApp() {
   function openCreateAtPlace(spot) {
     if (!spot || !hasCoords(spot)) return;
     setSheet(false);
+    setGeoState({ loading: false, message: "" });
+    setSearchResults([]);
     setDraft(createStopDraftFixed({ day: spot.day, lat: spot.lat, lng: spot.lng, category: "観光" }));
     setEditorMode("create");
   }
@@ -1599,6 +1553,8 @@ function EditorApp() {
     const stop = spotMap[id];
     if (!stop) return;
     setSheet(false);
+    setGeoState({ loading: false, message: "" });
+    setSearchResults([]);
     setDraft(createStopDraftFixed(stop));
     setEditorMode("edit");
   }
@@ -1820,6 +1776,13 @@ function EditorApp() {
         </div>
 
         <div className="scroll" ref={scrollRef}>
+          {plans.length === 0 && !firebaseStatus.loading ? (
+            <div className="list-empty" style={{ margin: 16 }}>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>プランがまだありません</div>
+              <div style={{ marginBottom: 10 }}>最初の旅行プランを作って、予定を追加していきましょう。</div>
+              <button className="btn-a primary" onClick={openPlanCreate}>＋ 最初のプランを作る</button>
+            </div>
+          ) : null}
           <MapView
             planId={selectedPlanId}
             stopsData={stopsData}
@@ -2048,8 +2011,10 @@ function ShareApp() {
               setMemoError("");
               await savePlan(plan.id, nextPlan);
               setPlan(nextPlan);
+              return true;
             } catch (error) {
               setMemoError("メモを保存できませんでした（このプランへの書き込み権限がない可能性があります）");
+              return false;
             }
           } : null}
         />
@@ -2080,6 +2045,9 @@ function StatusScreen({ title, copy }) {
 }
 
 function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onOpen, onFocusStop, onCreateStop, onToggleSchedule, scheduleOpen, sel, canEdit = true }) {
+  const [mapLocked, setMapLocked] = useState(false);
+  const lockedRef = React.useRef(false);
+  const mapInstanceRef = React.useRef(null);
   if (!sel || stopsData.length === 0) {
     return (
       <div className="map-wrap">
@@ -2178,8 +2146,26 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
             currentSpot={hasCoords(currentSpot) ? currentSpot : null}
             positions={positions}
             routeKey={route.join(",")}
+            lockedRef={lockedRef}
+            onLockChange={setMapLocked}
+            mapRef={mapInstanceRef}
           />
         </MapContainer>
+        {mapLocked ? (
+          <button
+            type="button"
+            className="map-fit-btn"
+            onClick={() => {
+              lockedRef.current = false;
+              setMapLocked(false);
+              if (mapInstanceRef.current && positions.length > 0) {
+                mapInstanceRef.current.fitBounds(positions, { padding: [30, 30] });
+              }
+            }}
+          >
+            全体を表示
+          </button>
+        ) : null}
       </div>
 
       <div className="sel-card">
@@ -2294,9 +2280,10 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
                 <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                   <button
                     className="btn-a primary"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!memoText.trim()) return;
-                      onAddMemo(memoText.trim());
+                      const result = await onAddMemo(memoText.trim());
+                      if (result === false) return;
                       setMemoText("");
                       setMemoFormOpen(false);
                     }}
@@ -2791,10 +2778,35 @@ function AuthScreen({ authMode, authForm, authPending, authError, onChangeMode, 
   );
 }
 
-function MapSelectionSync({ spot, currentSpot, positions, routeKey }) {
+function MapSelectionSync({ spot, currentSpot, positions, routeKey, lockedRef, onLockChange, mapRef }) {
   const map = useMap();
   const hasInitialized = React.useRef(false);
   const fittedRouteKey = React.useRef("");
+  const suppressRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (mapRef) mapRef.current = map;
+    const lock = () => {
+      if (lockedRef && !lockedRef.current) {
+        lockedRef.current = true;
+        if (onLockChange) onLockChange(true);
+      }
+    };
+    const onZoomStart = () => {
+      if (!suppressRef.current) lock();
+    };
+    const onMoveEnd = () => {
+      suppressRef.current = false;
+    };
+    map.on("dragstart", lock);
+    map.on("zoomstart", onZoomStart);
+    map.on("moveend", onMoveEnd);
+    return () => {
+      map.off("dragstart", lock);
+      map.off("zoomstart", onZoomStart);
+      map.off("moveend", onMoveEnd);
+    };
+  }, [map, lockedRef, onLockChange, mapRef]);
 
   React.useEffect(() => {
     const syncSize = () => {
@@ -2819,9 +2831,13 @@ function MapSelectionSync({ spot, currentSpot, positions, routeKey }) {
       // いまの予定があればそこを中心に、無ければ全体が入る表示にする（全体フィットとセンタリングを同時にやらない）
       const timer = window.setTimeout(() => {
         map.invalidateSize();
-        if (hasCoords(currentSpot)) {
+        if (lockedRef && lockedRef.current) {
+          // 手動で固定された表示範囲を優先し、初期移動をしない
+        } else if (hasCoords(currentSpot)) {
+          suppressRef.current = true;
           map.setView(getOffsetCenter(map, currentSpot, 90, 13), 13, { animate: false });
         } else if (positions.length > 0) {
+          suppressRef.current = true;
           map.fitBounds(positions, { padding: [30, 30] });
         }
         fittedRouteKey.current = routeKey;
@@ -2832,9 +2848,13 @@ function MapSelectionSync({ spot, currentSpot, positions, routeKey }) {
     }
 
     // 予定の並び（ID列）が変わったときだけ全体表示する。メモ追加や文言編集では地図を動かさない
+    // 手動で固定されている間は全体表示もしない（表示範囲を維持する）
     if (positions.length > 0 && fittedRouteKey.current !== routeKey) {
       fittedRouteKey.current = routeKey;
-      map.fitBounds(positions, { padding: [30, 30] });
+      if (!(lockedRef && lockedRef.current)) {
+        suppressRef.current = true;
+        map.fitBounds(positions, { padding: [30, 30] });
+      }
     }
     return undefined;
   }, [map, positions, routeKey]);
@@ -2848,7 +2868,11 @@ function MapSelectionSync({ spot, currentSpot, positions, routeKey }) {
     if (lastFlownId.current === spot.id) return;
     lastFlownId.current = spot.id;
 
+    // 手動で固定されている間は選択しても飛ばない
+    if (lockedRef && lockedRef.current) return;
+
     const zoom = map.getZoom() < 12 ? 12 : map.getZoom();
+    suppressRef.current = true;
     map.flyTo(getOffsetCenter(map, spot, 100, zoom), zoom, {
       animate: true,
       duration: 0.8,
@@ -2925,7 +2949,7 @@ function useNowClock() {
 }
 
 function getCurrentStopId(now, stopsData, startDate) {
-  const todayStart = new Date(`${startDate || initialPlans[0].startDate}T00:00:00`);
+  const todayStart = new Date(`${startDate || new Date().toLocaleDateString("sv-SE")}T00:00:00`);
 
   const schedule = stopsData.map((stop, index) => {
     const [hour, minute] = stop.time.split(":").map(Number);
