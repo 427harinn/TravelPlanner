@@ -1340,6 +1340,32 @@ function EditorApp() {
         })));
         return existing;
       },
+      addEditor: async (planId, email) => {
+        const plan = plansRef.current.find((item) => item.id === planId);
+        if (!plan) return null;
+        const user = authUserRef.current;
+        const isOwner = Boolean(user) && (plan.ownerUid === user.uid
+          || (plan.ownerEmail || "").toLowerCase() === (user.email || "").toLowerCase());
+        if (!isOwner) return null;
+        const normalized = String(email || "").trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return null;
+        if ((plan.ownerEmail || "").toLowerCase() === normalized) return plan;
+        const editorEmails = [...new Set([...(plan.editorEmails || []), normalized])];
+        setPlans((prev) => prev.map((item) => (item.id === planId ? { ...item, editorEmails } : item)));
+        return { ...plan, editorEmails };
+      },
+      removeEditor: async (planId, email) => {
+        const plan = plansRef.current.find((item) => item.id === planId);
+        if (!plan) return null;
+        const user = authUserRef.current;
+        const isOwner = Boolean(user) && (plan.ownerUid === user.uid
+          || (plan.ownerEmail || "").toLowerCase() === (user.email || "").toLowerCase());
+        if (!isOwner) return null;
+        const normalized = String(email || "").trim().toLowerCase();
+        const editorEmails = (plan.editorEmails || []).filter((item) => item.toLowerCase() !== normalized);
+        setPlans((prev) => prev.map((item) => (item.id === planId ? { ...item, editorEmails } : item)));
+        return { ...plan, editorEmails };
+      },
     });
   }, []);
   const hasSyncedInitialSelection = React.useRef(false);

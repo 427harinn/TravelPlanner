@@ -12,10 +12,15 @@ function summarizePlan(plan) {
   return {
     id: plan.id,
     name: plan.name,
+    icon: plan.icon,
     description: plan.description,
     startDate: plan.startDate,
     endDate: plan.endDate,
     stopCount: Array.isArray(plan.stops) ? plan.stops.length : 0,
+    published: plan.published !== false,
+    shareId: plan.shareId || "",
+    ownerEmail: plan.ownerEmail || "",
+    editorEmails: Array.isArray(plan.editorEmails) ? plan.editorEmails : [],
   };
 }
 
@@ -241,6 +246,42 @@ export function registerTravelPlannerTools(handlers) {
         const stop = await handlers.deleteStop(planId, stopId);
         if (!stop) return textResult("plan or stop not found");
         return textResult({ deleted: summarizeStop(stop) });
+      },
+    },
+    {
+      name: "add_editor",
+      description: "プランに編集者をメールアドレスで招待する（所有者のみ、ログイン時のみ）",
+      inputSchema: {
+        type: "object",
+        properties: {
+          planId: { type: "string" },
+          email: { type: "string" },
+        },
+        required: ["planId", "email"],
+      },
+      execute: async ({ planId, email }) => {
+        if (!handlers.isLoggedIn()) return textResult("login required");
+        const plan = await handlers.addEditor(planId, email);
+        if (!plan) return textResult("plan not found, not owned by the current user, or invalid email");
+        return textResult({ editorEmails: plan.editorEmails });
+      },
+    },
+    {
+      name: "remove_editor",
+      description: "プランから編集者を外す（所有者のみ、ログイン時のみ）",
+      inputSchema: {
+        type: "object",
+        properties: {
+          planId: { type: "string" },
+          email: { type: "string" },
+        },
+        required: ["planId", "email"],
+      },
+      execute: async ({ planId, email }) => {
+        if (!handlers.isLoggedIn()) return textResult("login required");
+        const plan = await handlers.removeEditor(planId, email);
+        if (!plan) return textResult("plan not found or not owned by the current user");
+        return textResult({ editorEmails: plan.editorEmails });
       },
     },
   ];
