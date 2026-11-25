@@ -2093,7 +2093,7 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
                   dblclick: () => onOpen(id),
                 }}
               >
-                <Popup>
+                <Popup autoPan={false}>
                   <div style={{ minWidth: 170 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "#78716c", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                       {s.time} · {s.category}
@@ -2741,28 +2741,42 @@ function MapSelectionSync({ spot, currentSpot, positions, routeKey }) {
   }, [map]);
 
   React.useEffect(() => {
+    if (!hasInitialized.current) {
+      // 初期表示は1回だけ、レイアウト確定後に決める。
+      // いまの予定があればそこを中心に、無ければ全体が入る表示にする（全体フィットとセンタリングを同時にやらない）
+      const timer = window.setTimeout(() => {
+        map.invalidateSize();
+        if (hasCoords(currentSpot)) {
+          map.setView(getOffsetCenter(map, currentSpot, 90, 13), 13, { animate: false });
+        } else if (positions.length > 0) {
+          map.fitBounds(positions, { padding: [30, 30] });
+        }
+        fittedRouteKey.current = routeKey;
+        hasInitialized.current = true;
+        lastFlownId.current = (hasCoords(currentSpot) ? currentSpot : spot)?.id || "";
+      }, 180);
+      return () => window.clearTimeout(timer);
+    }
+
     // 予定の並び（ID列）が変わったときだけ全体表示する。メモ追加や文言編集では地図を動かさない
     if (positions.length > 0 && fittedRouteKey.current !== routeKey) {
       fittedRouteKey.current = routeKey;
       map.fitBounds(positions, { padding: [30, 30] });
     }
+    return undefined;
   }, [map, positions, routeKey]);
 
+  const lastFlownId = React.useRef("");
   React.useEffect(() => {
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-      const initialSpot = hasCoords(currentSpot) ? currentSpot : spot;
-      if (hasCoords(initialSpot)) {
-        map.setView(getOffsetCenter(map, initialSpot, 120), 12, { animate: false });
-      }
-      return;
-    }
+    if (!hasInitialized.current) return;
 
     // 座標のない予定を選んだときは地図を動かさない。現在時刻の予定が変わっても勝手に飛ばない
     if (!hasCoords(spot)) return;
+    if (lastFlownId.current === spot.id) return;
+    lastFlownId.current = spot.id;
 
-    const zoom = map.getZoom() < 11 ? 11 : map.getZoom();
-    map.flyTo(getOffsetCenter(map, spot, 60), zoom, {
+    const zoom = map.getZoom() < 12 ? 12 : map.getZoom();
+    map.flyTo(getOffsetCenter(map, spot, 100, zoom), zoom, {
       animate: true,
       duration: 0.8,
     });
@@ -2806,10 +2820,10 @@ function createMapIcon(spot, active, isCurrent, order) {
   });
 }
 
-function getOffsetCenter(map, spot, offsetY) {
-  const point = map.project([spot.lat, spot.lng], map.getZoom());
+function getOffsetCenter(map, spot, offsetY, zoom = map.getZoom()) {
+  const point = map.project([spot.lat, spot.lng], zoom);
   const shifted = L.point(point.x, point.y - offsetY);
-  const latLng = map.unproject(shifted, map.getZoom());
+  const latLng = map.unproject(shifted, zoom);
   return [latLng.lat, latLng.lng];
 }
 
