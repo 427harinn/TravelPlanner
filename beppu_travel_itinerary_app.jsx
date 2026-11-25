@@ -745,6 +745,8 @@ body {
   display: flex;
   align-items: flex-end;
   animation: bdfade 0.18s ease;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 @keyframes bdfade { from { opacity:0 } to { opacity:1 } }
 
@@ -758,6 +760,8 @@ body {
   max-height: 86svh;
   overflow-y: auto;
   animation: sheetup 0.22s cubic-bezier(0.34,1.08,0.5,1);
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 @keyframes sheetup {
   from { transform: translateY(55%) }
@@ -855,6 +859,8 @@ body {
   z-index: 3000;
   display: flex;
   align-items: flex-end;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 .settings-backdrop {
   align-items: center;
@@ -869,6 +875,8 @@ body {
   padding: 14px 16px 30px;
   max-height: 90svh;
   overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 .overlay-panel {
   width: min(560px, calc(100vw - 32px));
@@ -1243,6 +1251,7 @@ function EditorApp() {
   const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) || plans[0];
   const stopsData = selectedPlan?.stops || [];
   const spotMap = useMemo(() => Object.fromEntries(stopsData.map(s => [s.id, s])), [stopsData]);
+  useBodyScrollLock(Boolean(sheet || editorMode || settingsOpen || planEditorOpen));
   const geocodeCache = React.useRef(new Map());
   const plansRef = React.useRef(plans);
   const authUserRef = React.useRef(authUser);
@@ -1909,6 +1918,7 @@ function ShareApp() {
   const [sheet, setSheet] = useState(false);
   const [editHelpOpen, setEditHelpOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  useBodyScrollLock(Boolean(sheet || editHelpOpen));
   const scrollRef = React.useRef(null);
   const hasSyncedInitialSelection = React.useRef(false);
   const now = useNowClock();
@@ -2253,7 +2263,7 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
           ) : null}
         </div>
         {onAddAtPlace ? (
-          <button className="btn-a secondary" style={{ width: "100%", marginTop: 10 }} onClick={onAddAtPlace}>
+          <button className="btn-a" style={{ width: "100%", marginTop: 2, marginBottom: 12, background: "var(--surface)", border: "1.5px solid var(--accent)", color: "var(--accent)" }} onClick={onAddAtPlace}>
             📍 この場所の予定を追加
           </button>
         ) : null}
@@ -2888,6 +2898,17 @@ function getOffsetCenter(map, spot, offsetY, zoom = map.getZoom()) {
   const shifted = L.point(point.x, point.y - offsetY);
   const latLng = map.unproject(shifted, zoom);
   return [latLng.lat, latLng.lng];
+}
+
+function useBodyScrollLock(locked) {
+  React.useEffect(() => {
+    if (!locked) return undefined;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [locked]);
 }
 
 function useNowClock() {
