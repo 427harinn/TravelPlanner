@@ -1562,6 +1562,12 @@ function EditorApp() {
     setPlanDraft(createPlanDraft());
     setPlanEditorOpen(true);
   }
+  function openCreateAtPlace(spot) {
+    if (!spot || !hasCoords(spot)) return;
+    setSheet(false);
+    setDraft(createStopDraftFixed({ day: spot.day, lat: spot.lat, lng: spot.lng, category: "観光" }));
+    setEditorMode("create");
+  }
   function openEdit(id) {
     const stop = spotMap[id];
     if (!stop) return;
@@ -1809,6 +1815,7 @@ function EditorApp() {
           spot={sel}
           onClose={() => setSheet(false)}
           onEdit={() => openEdit(sel.id)}
+          onAddAtPlace={hasCoords(sel) ? () => openCreateAtPlace(sel) : null}
           onAddMemo={authUser ? (text) => {
             const memo = { id: `memo-${Math.random().toString(36).slice(2, 9)}`, text, authorEmail: authUser.email || "", createdAt: new Date().toISOString() };
             setPlans((prev) => prev.map((plan) => plan.id !== selectedPlan.id ? plan : {
@@ -2179,7 +2186,7 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
   return (
     <div className={compact ? "" : "list-wrap"}>
       {stopsData.map((s, i) => (
-        <button key={s.id} className={`li${selId === s.id ? " sel" : ""}${currentStopId === s.id ? " now" : ""}`} onClick={() => (compact && onSelect ? onSelect(s.id) : onOpen(s.id))}>
+        <button key={s.id} className={`li${selId === s.id ? " sel" : ""}${currentStopId === s.id ? " now" : ""}`} onClick={() => (compact && onSelect ? onSelect(s.id) : onOpen(s.id))} onDoubleClick={() => onOpen(s.id)}>
           <div className="li-icon" style={{ background: s.chip + "66" }}>{s.emoji}</div>
           <div className="li-main">
             <div className="li-row">
@@ -2197,8 +2204,9 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
   );
 }
 
-function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoError = "" }) {
+function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoError = "", onAddAtPlace = null }) {
   const [memoText, setMemoText] = useState("");
+  const [memoFormOpen, setMemoFormOpen] = useState(false);
   const memos = Array.isArray(spot.memos) ? spot.memos : [];
   return (
     <div className="backdrop" onClick={onClose}>
@@ -2220,39 +2228,58 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
         <div className="sheet-box">
           <div className="sheet-box-lbl">みんなのメモ</div>
           {memos.length === 0 ? <div className="sheet-detail">まだメモはありません</div> : null}
-          {memos.map((memo) => (
-            <div key={memo.id} style={{ marginTop: 6 }}>
-              <div className="sheet-detail" style={{ whiteSpace: "pre-wrap" }}>{memo.text}</div>
-              <div style={{ fontSize: 11, color: "#a8a29e" }}>
-                {memo.authorEmail || "unknown"} · {memo.createdAt ? new Date(memo.createdAt).toLocaleString("ja-JP") : ""}
+          <div style={{ maxHeight: 180, overflowY: "auto" }}>
+            {memos.map((memo) => (
+              <div key={memo.id} style={{ marginTop: 6 }}>
+                <div className="sheet-detail" style={{ whiteSpace: "pre-wrap" }}>{memo.text}</div>
+                <div style={{ fontSize: 11, color: "#a8a29e" }}>
+                  {memo.authorEmail || "unknown"} · {memo.createdAt ? new Date(memo.createdAt).toLocaleString("ja-JP") : ""}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
           {onAddMemo ? (
-            <div style={{ marginTop: 8 }}>
-              <textarea
-                className="editor-textarea"
-                placeholder="メモを書く（電車の時刻など）"
-                value={memoText}
-                onChange={(e) => setMemoText(e.target.value)}
-              />
-              {memoError ? <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>{memoError}</div> : null}
-              <button
-                className="btn-a secondary"
-                style={{ marginTop: 6 }}
-                onClick={() => {
-                  if (!memoText.trim()) return;
-                  onAddMemo(memoText.trim());
-                  setMemoText("");
-                }}
-              >
-                メモを追加
+            memoFormOpen ? (
+              <div style={{ marginTop: 8 }}>
+                <textarea
+                  className="editor-textarea"
+                  placeholder="メモを書く（電車の時刻など）"
+                  value={memoText}
+                  onChange={(e) => setMemoText(e.target.value)}
+                  autoFocus
+                />
+                {memoError ? <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>{memoError}</div> : null}
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  <button
+                    className="btn-a primary"
+                    onClick={() => {
+                      if (!memoText.trim()) return;
+                      onAddMemo(memoText.trim());
+                      setMemoText("");
+                      setMemoFormOpen(false);
+                    }}
+                  >
+                    追加する
+                  </button>
+                  <button className="btn-a secondary" onClick={() => { setMemoFormOpen(false); setMemoText(""); }}>
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="btn-a secondary" style={{ marginTop: 8 }} onClick={() => setMemoFormOpen(true)}>
+                ＋メモを追加
               </button>
-            </div>
+            )
           ) : (
             <div className="sheet-detail" style={{ marginTop: 6 }}>メモの追加はログインすると使えます</div>
           )}
         </div>
+        {onAddAtPlace ? (
+          <button className="btn-a secondary" style={{ width: "100%", marginTop: 10 }} onClick={onAddAtPlace}>
+            📍 この場所の予定を追加
+          </button>
+        ) : null}
         <div className="sheet-btns">
           <a href={spot.mapUrl} target="_blank" rel="noreferrer" className="btn-a primary">🗺 マップ</a>
           <button className="btn-a secondary" onClick={onEdit}>✏️ 編集</button>
