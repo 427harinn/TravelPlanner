@@ -542,6 +542,27 @@ body {
   justify-content: space-between;
   gap: 10px;
 }
+.list-full {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--bg, #f7f5f2);
+  display: flex;
+  flex-direction: column;
+}
+.list-full-head {
+  padding: 14px 16px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.list-full-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 16px 28px;
+}
 .schedule-list-scroll {
   flex: 1;
   min-height: 0;
@@ -2140,10 +2161,34 @@ function StatusScreen({ title, copy }) {
 
 function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onOpen, onFocusStop, onCreateStop, onToggleSchedule, scheduleOpen, sel, canEdit = true }) {
   const [mapLocked, setMapLocked] = useState(false);
+  const [listFull, setListFull] = useState(false);
   const lockedRef = React.useRef(false);
   const mapInstanceRef = React.useRef(null);
   const route = useMemo(() => stopsData.filter((stop) => hasCoords(stop)).map(s => s.id), [stopsData]);
   const positions = useMemo(() => route.map(id => [spotMap[id].lat, spotMap[id].lng]), [route, spotMap]);
+
+  if (listFull) {
+    return (
+      <div className="list-full">
+        <div className="list-full-head">
+          <div className="schedule-toggle-title">予定一覧</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {canEdit ? (
+              <button className="schedule-action primary" style={{ padding: "8px 12px" }} onClick={onCreateStop}>
+                ＋予定を追加
+              </button>
+            ) : null}
+            <button className="schedule-action" style={{ padding: "8px 12px" }} onClick={() => setListFull(false)}>
+              地図に戻る
+            </button>
+          </div>
+        </div>
+        <div className="list-full-scroll">
+          <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onPick} />
+        </div>
+      </div>
+    );
+  }
 
   if (!sel || stopsData.length === 0) {
     return (
@@ -2282,7 +2327,7 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
         </div>
         <div className="schedule-list-scroll">
           <div className="schedule-body" style={{ borderTop: "none", paddingTop: 0 }}>
-            <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onFocusStop} compact />
+            <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={(id) => { onPick(id); setListFull(true); }} compact />
           </div>
         </div>
       </div>
@@ -2921,24 +2966,24 @@ function MapSelectionSync({ spot, currentSpot, positions, routeKey, lockedRef, o
 
   React.useEffect(() => {
     if (!hasInitialized.current) {
-      // 初期表示は1回だけ。まず全体が入る倍率で見せてから、選択中の予定（いまの予定優先、無ければ選択中＝最初の予定）に寄せて真ん中に置く
-      let flyTimer;
+      // 初期表示は1回だけ。まず全体が入る倍率で見せてから、選択中の予定（いまの予定優先、無ければ選択中＝最初の予定）に寄せて真ん中に置く。
+      // 寄せる処理はタイマー連鎖だと再描画のクリーンアップで消えるため、地図の moveend イベントでつなぐ
       const timer = window.setTimeout(() => {
         map.invalidateSize();
         if (lockedRef && lockedRef.current) {
           // 手動で固定された表示範囲を優先し、初期移動をしない
         } else if (positions.length > 0) {
-          suppressRef.current = true;
-          map.fitBounds(positions, { padding: [30, 30] });
           const focus = hasCoords(currentSpot) ? currentSpot : (hasCoords(spot) ? spot : null);
           if (focus) {
             lastFlownId.current = focus.id;
-            flyTimer = window.setTimeout(() => {
+            map.once("moveend", () => {
               if (lockedRef && lockedRef.current) return;
               suppressRef.current = true;
               map.flyTo(getOffsetCenter(map, focus, 90, 13), 13, { animate: true, duration: 0.8 });
-            }, 650);
+            });
           }
+          suppressRef.current = true;
+          map.fitBounds(positions, { padding: [30, 30] });
         }
         fittedRouteKey.current = routeKey;
         hasInitialized.current = true;
@@ -2946,10 +2991,7 @@ function MapSelectionSync({ spot, currentSpot, positions, routeKey, lockedRef, o
           lastFlownId.current = (hasCoords(currentSpot) ? currentSpot : spot)?.id || "";
         }
       }, 180);
-      return () => {
-        window.clearTimeout(timer);
-        if (flyTimer) window.clearTimeout(flyTimer);
-      };
+      return () => window.clearTimeout(timer);
     }
 
     // 予定の並び（ID列）が変わったときだけ全体表示する。メモ追加や文言編集では地図を動かさない
