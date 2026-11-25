@@ -2118,9 +2118,10 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
             );
           })}
           <MapSelectionSync
-            spot={focusSpot}
+            spot={sel}
             currentSpot={hasCoords(currentSpot) ? currentSpot : null}
             positions={positions}
+            routeKey={route.join(",")}
           />
         </MapContainer>
       </div>
@@ -2717,9 +2718,10 @@ function AuthScreen({ authMode, authForm, authPending, authError, onChangeMode, 
   );
 }
 
-function MapSelectionSync({ spot, currentSpot, positions }) {
+function MapSelectionSync({ spot, currentSpot, positions, routeKey }) {
   const map = useMap();
   const hasInitialized = React.useRef(false);
+  const fittedRouteKey = React.useRef("");
 
   React.useEffect(() => {
     const syncSize = () => {
@@ -2739,27 +2741,32 @@ function MapSelectionSync({ spot, currentSpot, positions }) {
   }, [map]);
 
   React.useEffect(() => {
-    if (positions.length > 0) {
+    // 予定の並び（ID列）が変わったときだけ全体表示する。メモ追加や文言編集では地図を動かさない
+    if (positions.length > 0 && fittedRouteKey.current !== routeKey) {
+      fittedRouteKey.current = routeKey;
       map.fitBounds(positions, { padding: [30, 30] });
     }
-  }, [map, positions]);
+  }, [map, positions, routeKey]);
 
   React.useEffect(() => {
-    const initialSpot = currentSpot || spot;
-    if (!hasCoords(initialSpot) || !hasCoords(spot)) return;
-
     if (!hasInitialized.current) {
-      map.setView(getOffsetCenter(map, initialSpot, 120), 12, { animate: false });
       hasInitialized.current = true;
+      const initialSpot = hasCoords(currentSpot) ? currentSpot : spot;
+      if (hasCoords(initialSpot)) {
+        map.setView(getOffsetCenter(map, initialSpot, 120), 12, { animate: false });
+      }
       return;
     }
+
+    // 座標のない予定を選んだときは地図を動かさない。現在時刻の予定が変わっても勝手に飛ばない
+    if (!hasCoords(spot)) return;
 
     const zoom = map.getZoom() < 11 ? 11 : map.getZoom();
     map.flyTo(getOffsetCenter(map, spot, 60), zoom, {
       animate: true,
       duration: 0.8,
     });
-  }, [currentSpot, map, spot]);
+  }, [map, spot]);
 
   return null;
 }
