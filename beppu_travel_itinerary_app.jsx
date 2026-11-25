@@ -898,6 +898,24 @@ body {
   color: var(--text2);
   font-size: 14px;
 }
+.editor-group-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text2);
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+.editor-details {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.editor-details summary {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  cursor: pointer;
+}
 .editor-grid {
   display: grid;
   gap: 10px;
@@ -2218,15 +2236,29 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
             <div className="sheet-tag">{spot.time} · {spot.category}</div>
             <div className="sheet-name">{spot.name}</div>
           </div>
+          <button className="btn-a secondary" style={{ padding: "6px 10px", fontSize: 12 }} onClick={onEdit}>✏️ 編集</button>
           <button className="sheet-x" onClick={onClose}>✕</button>
         </div>
+        <a href={spot.mapUrl} target="_blank" rel="noreferrer" className="btn-a primary" style={{ display: "block", textAlign: "center", marginTop: 10 }}>
+          🗺 Googleマップで開く
+        </a>
         <div className="sheet-box">
-          <div className="sheet-box-lbl">まとめ</div>
+          <div className="sheet-box-lbl">詳細メモ（作成者）</div>
           <div className="sheet-short">{spot.short}</div>
           <div className="sheet-detail">{spot.detail}</div>
+          {spot.photoUrl ? (
+            <a href={spot.photoUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 12, color: "var(--accent)", fontWeight: 700, textDecoration: "none" }}>
+              🔗 参考リンク（写真など）
+            </a>
+          ) : null}
         </div>
+        {onAddAtPlace ? (
+          <button className="btn-a secondary" style={{ width: "100%", marginTop: 10 }} onClick={onAddAtPlace}>
+            📍 この場所の予定を追加
+          </button>
+        ) : null}
         <div className="sheet-box">
-          <div className="sheet-box-lbl">みんなのメモ</div>
+          <div className="sheet-box-lbl">みんなのメモ（ログインで追記可）</div>
           {memos.length === 0 ? <div className="sheet-detail">まだメモはありません</div> : null}
           <div style={{ maxHeight: 180, overflowY: "auto" }}>
             {memos.map((memo) => (
@@ -2275,16 +2307,6 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
             <div className="sheet-detail" style={{ marginTop: 6 }}>メモの追加はログインすると使えます</div>
           )}
         </div>
-        {onAddAtPlace ? (
-          <button className="btn-a secondary" style={{ width: "100%", marginTop: 10 }} onClick={onAddAtPlace}>
-            📍 この場所の予定を追加
-          </button>
-        ) : null}
-        <div className="sheet-btns">
-          <a href={spot.mapUrl} target="_blank" rel="noreferrer" className="btn-a primary">🗺 マップ</a>
-          <button className="btn-a secondary" onClick={onEdit}>✏️ 編集</button>
-          <a href={spot.photoUrl} target="_blank" rel="noreferrer" className="btn-a secondary">🔗 リンク</a>
-        </div>
       </div>
     </div>
   );
@@ -2332,6 +2354,7 @@ function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDele
         </div>
 
         <div className="editor-grid">
+          <div className="editor-group-lbl">基本</div>
           <div className="editor-row2">
             <div className="editor-field">
               <label>名前</label>
@@ -2379,25 +2402,6 @@ function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDele
             <textarea className="editor-textarea" value={draft.detail} onChange={(e) => onChange("detail", e.target.value)} />
           </div>
 
-          <div className="editor-row2">
-            <div className="editor-field">
-              <label>緯度</label>
-              <input className="editor-input" placeholder="33.3158" value={draft.lat} onChange={(e) => onChange("lat", e.target.value)} />
-            </div>
-            <div className="editor-field">
-              <label>経度</label>
-              <input className="editor-input" placeholder="131.4772" value={draft.lng} onChange={(e) => onChange("lng", e.target.value)} />
-            </div>
-          </div>
-
-          <div className="editor-field">
-            <label>Google Maps URL</label>
-            <input className="editor-input" value={draft.mapUrl} onChange={(e) => onChange("mapUrl", e.target.value)} />
-          </div>
-          <div className="editor-field">
-            <label>写真・参考URL</label>
-            <input className="editor-input" value={draft.photoUrl} onChange={(e) => onChange("photoUrl", e.target.value)} />
-          </div>
           <div className="editor-status">{geoState.message}</div>
           {searchResults.length > 0 ? (
             <div className="editor-results">
@@ -2410,13 +2414,45 @@ function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDele
             </div>
           ) : null}
           <div className="editor-note">まず名前や住所で検索して候補から選ぶ運用にします。Google Maps URL は補助用です。時刻は `HH:MM`、日数は `1` か `2` のように入れてください。</div>
+          <div className="editor-group-lbl">場所</div>
+          <details className="editor-details">
+            <summary>座標・URLを手で直す（通常は不要）</summary>
+            <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+              <div className="editor-row2">
+                <div className="editor-field">
+                  <label>緯度</label>
+                  <input className="editor-input" placeholder="33.3158" value={draft.lat} onChange={(e) => onChange("lat", e.target.value)} />
+                </div>
+                <div className="editor-field">
+                  <label>経度</label>
+                  <input className="editor-input" placeholder="131.4772" value={draft.lng} onChange={(e) => onChange("lng", e.target.value)} />
+                </div>
+              </div>
+              <div className="editor-field">
+                <label>Google Maps URL</label>
+                <input className="editor-input" value={draft.mapUrl} onChange={(e) => onChange("mapUrl", e.target.value)} />
+              </div>
+              <div className="editor-field">
+                <label>写真・参考URL</label>
+                <input className="editor-input" value={draft.photoUrl} onChange={(e) => onChange("photoUrl", e.target.value)} />
+              </div>
+            </div>
+          </details>
         </div>
 
         <div className="editor-actions">
           <button className="editor-btn secondary" onClick={onClose}>キャンセル</button>
           <button className="editor-btn primary" onClick={onSave}>保存</button>
-          {mode === "edit" ? <button className="editor-btn danger" onClick={onDelete} disabled={!canDelete}>{canDelete ? "削除" : "残り1件"}</button> : <div />}
         </div>
+        {mode === "edit" ? (
+          <button
+            onClick={onDelete}
+            disabled={!canDelete}
+            style={{ width: "100%", marginTop: 10, border: "none", background: "transparent", color: canDelete ? "#dc2626" : "#a8a29e", fontSize: 12, fontWeight: 700, padding: "8px 0", cursor: canDelete ? "pointer" : "default", fontFamily: "var(--font)" }}
+          >
+            {canDelete ? "この予定を削除" : "最後の1件は削除できません"}
+          </button>
+        ) : null}
       </div>
     </div>
   );
