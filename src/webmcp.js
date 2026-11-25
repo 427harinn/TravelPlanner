@@ -155,6 +155,94 @@ export function registerTravelPlannerTools(handlers) {
         return textResult({ added: memo });
       },
     },
+    {
+      name: "update_plan",
+      description: "プランの名前・アイコン・説明・期間・公開設定を変更する（指定した項目だけ変わる。所有者のみ、ログイン時のみ）",
+      inputSchema: {
+        type: "object",
+        properties: {
+          planId: { type: "string" },
+          name: { type: "string" },
+          icon: { type: "string" },
+          description: { type: "string" },
+          startDate: { type: "string", description: "YYYY-MM-DD" },
+          endDate: { type: "string", description: "YYYY-MM-DD" },
+          published: { type: "boolean" },
+        },
+        required: ["planId"],
+      },
+      execute: async (args) => {
+        if (!handlers.isLoggedIn()) return textResult("login required");
+        const plan = await handlers.updatePlan(args.planId, args);
+        if (!plan) return textResult(`plan not found: ${args.planId}`);
+        return textResult({ updated: summarizePlan(plan) });
+      },
+    },
+    {
+      name: "delete_plan",
+      description: "プランを丸ごと削除する。元に戻せない（所有者のみ、ログイン時のみ）",
+      inputSchema: {
+        type: "object",
+        properties: {
+          planId: { type: "string" },
+        },
+        required: ["planId"],
+      },
+      execute: async ({ planId }) => {
+        if (!handlers.isLoggedIn()) return textResult("login required");
+        const plan = await handlers.deletePlan(planId);
+        if (!plan) return textResult("plan not found or not owned by the current user");
+        return textResult({ deleted: summarizePlan(plan) });
+      },
+    },
+    {
+      name: "update_stop",
+      description: "予定の内容を変更する（指定した項目だけ変わる）。カテゴリを変えると絵文字もカテゴリに追随する。clearCoordinates で座標を外せる（ログイン時のみ）",
+      inputSchema: {
+        type: "object",
+        properties: {
+          planId: { type: "string" },
+          stopId: { type: "string" },
+          name: { type: "string" },
+          day: { type: "number" },
+          time: { type: "string", description: "HH:MM" },
+          category: { type: "string" },
+          emoji: { type: "string" },
+          short: { type: "string" },
+          detail: { type: "string" },
+          lat: { type: "number" },
+          lng: { type: "number" },
+          clearCoordinates: { type: "boolean" },
+          mapUrl: { type: "string" },
+          photoUrl: { type: "string" },
+        },
+        required: ["planId", "stopId"],
+      },
+      execute: async (args) => {
+        if (!handlers.isLoggedIn()) return textResult("login required");
+        const stop = await handlers.updateStop(args.planId, args.stopId, args);
+        if (!stop) return textResult("plan or stop not found");
+        return textResult({ updated: summarizeStop(stop) });
+      },
+    },
+    {
+      name: "delete_stop",
+      description: "プランから予定を1件削除する。元に戻せない（ログイン時のみ）",
+      inputSchema: {
+        type: "object",
+        properties: {
+          planId: { type: "string" },
+          stopId: { type: "string" },
+        },
+        required: ["planId", "stopId"],
+      },
+      execute: async ({ planId, stopId }) => {
+        if (!handlers.isLoggedIn()) return textResult("login required");
+        const stop = await handlers.deleteStop(planId, stopId);
+        if (!stop) return textResult("plan or stop not found");
+        return textResult({ deleted: summarizeStop(stop) });
+      },
+    },
   ];
 
   let registered = 0;

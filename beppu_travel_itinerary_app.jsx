@@ -3,6 +3,7 @@ import L from "leaflet";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
 import {
+  deleteTravelPlan,
   firebaseEnabled,
   resetPassword,
   savePlan,
@@ -1272,6 +1273,72 @@ function EditorApp() {
           stops: item.stops.map((target) => target.id !== stopId ? target : { ...target, memos: [...(Array.isArray(target.memos) ? target.memos : []), memo] }),
         }));
         return memo;
+      },
+      updatePlan: async (planId, args) => {
+        const plan = plansRef.current.find((item) => item.id === planId);
+        if (!plan) return null;
+        const next = { ...plan };
+        if (typeof args.name === "string" && args.name.trim()) next.name = args.name.trim();
+        if (typeof args.icon === "string" && args.icon.trim()) next.icon = args.icon.trim();
+        if (typeof args.description === "string") next.description = args.description;
+        if (typeof args.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.startDate)) next.startDate = args.startDate;
+        if (typeof args.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.endDate)) next.endDate = args.endDate;
+        if (typeof args.published === "boolean") next.published = args.published;
+        setPlans((prev) => prev.map((item) => (item.id === planId ? next : item)));
+        return next;
+      },
+      deletePlan: async (planId) => {
+        const plan = plansRef.current.find((item) => item.id === planId);
+        if (!plan) return null;
+        const user = authUserRef.current;
+        const isOwner = Boolean(user) && (plan.ownerUid === user.uid
+          || (plan.ownerEmail || "").toLowerCase() === (user.email || "").toLowerCase());
+        if (!isOwner) return null;
+        await deleteTravelPlan(planId);
+        setPlans((prev) => prev.filter((item) => item.id !== planId));
+        setSelectedPlanId((prev) => (prev === planId ? "" : prev));
+        return plan;
+      },
+      updateStop: async (planId, stopId, args) => {
+        const plan = plansRef.current.find((item) => item.id === planId);
+        const existing = plan?.stops?.find((item) => item.id === stopId);
+        if (!plan || !existing) return null;
+        const draft = { ...createStopDraftFixed(existing) };
+        if (typeof args.name === "string") draft.name = args.name;
+        if (Number.isInteger(args.day) && args.day >= 1) draft.day = String(args.day);
+        if (typeof args.time === "string") draft.time = args.time;
+        if (typeof args.category === "string") {
+          draft.category = args.category;
+          if (typeof args.emoji !== "string") draft.emoji = "";
+        }
+        if (typeof args.emoji === "string") draft.emoji = args.emoji;
+        if (typeof args.short === "string") draft.short = args.short;
+        if (typeof args.detail === "string") draft.detail = args.detail;
+        if (typeof args.mapUrl === "string") draft.mapUrl = args.mapUrl;
+        if (typeof args.photoUrl === "string") draft.photoUrl = args.photoUrl;
+        if (args.clearCoordinates === true) {
+          draft.lat = "";
+          draft.lng = "";
+        } else {
+          if (Number.isFinite(args.lat)) draft.lat = String(args.lat);
+          if (Number.isFinite(args.lng)) draft.lng = String(args.lng);
+        }
+        const normalized = normalizeStopDraftFixed(draft, existing);
+        setPlans((prev) => prev.map((item) => (item.id !== planId ? item : {
+          ...item,
+          stops: sortStops((item.stops || []).map((target) => (target.id === stopId ? normalized : target))),
+        })));
+        return normalized;
+      },
+      deleteStop: async (planId, stopId) => {
+        const plan = plansRef.current.find((item) => item.id === planId);
+        const existing = plan?.stops?.find((item) => item.id === stopId);
+        if (!plan || !existing) return null;
+        setPlans((prev) => prev.map((item) => (item.id !== planId ? item : {
+          ...item,
+          stops: (item.stops || []).filter((target) => target.id !== stopId),
+        })));
+        return existing;
       },
     });
   }, []);

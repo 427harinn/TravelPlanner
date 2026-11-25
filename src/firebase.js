@@ -12,6 +12,7 @@ import {
 } from "firebase/auth";
 import {
   collection,
+  deleteDoc,
   doc,
   getFirestore,
   limit,
@@ -240,6 +241,14 @@ export async function savePlan(planId, plan) {
     },
     { merge: true },
   );
+}
+
+export async function deleteTravelPlan(planId) {
+  if (!db || !planId) {
+    throw new Error("Firebase Firestore is not configured");
+  }
+
+  await deleteDoc(doc(db, "travelPlans", planId));
 }
 
 export async function savePlans(uid, plans) {
