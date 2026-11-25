@@ -15,6 +15,7 @@ import {
   subscribeToPlans,
   subscribeToPublicPlanByShareId,
 } from "./src/firebase.js";
+import { registerTravelPlannerTools } from "./src/webmcp.js";
 
 const beppuStops = [
   {
@@ -1204,6 +1205,79 @@ function EditorApp() {
   const stopsData = selectedPlan?.stops || [];
   const spotMap = useMemo(() => Object.fromEntries(stopsData.map(s => [s.id, s])), [stopsData]);
   const geocodeCache = React.useRef(new Map());
+  const plansRef = React.useRef(plans);
+  const authUserRef = React.useRef(authUser);
+  React.useEffect(() => { plansRef.current = plans; }, [plans]);
+  React.useEffect(() => { authUserRef.current = authUser; }, [authUser]);
+
+  React.useEffect(() => {
+    registerTravelPlannerTools({
+      getPlans: () => plansRef.current,
+      isLoggedIn: () => Boolean(authUserRef.current),
+      createPlan: async ({ name, description, startDate, endDate, icon }) => {
+        const normalizedPlan = {
+          ...normalizePlanDraft({
+            icon: (icon || "🧳"),
+            name: name || "",
+            description: description || "",
+            startDate: startDate || "",
+            endDate: endDate || "",
+          }),
+          ownerEmail: (authUserRef.current?.email || "").toLowerCase(),
+          editorEmails: [],
+        };
+        setPlans((prev) => [...prev, normalizedPlan]);
+        setSelectedPlanId(normalizedPlan.id);
+        setPendingCreatePlanId(normalizedPlan.id);
+        return normalizedPlan;
+      },
+      addStop: async (planId, args) => {
+        const plan = plansRef.current.find((item) => item.id === planId);
+        if (!plan) return null;
+        let lat = "";
+        let lng = "";
+        try {
+          const results = await geocodePlace(args.placeQuery || args.name, 1);
+          if (results && results[0]) {
+            lat = String(results[0].lat);
+            lng = String(results[0].lng);
+          }
+        } catch (error) {
+          // 座標が取れなくても座標なしで登録する
+        }
+        const draft = {
+          ...createStopDraftFixed(),
+          name: args.name || "",
+          day: String(args.day || 1),
+          time: args.time || "10:00",
+          category: args.category || "観光",
+          short: args.short || "",
+          detail: args.detail || "",
+          lat,
+          lng,
+        };
+        const normalized = normalizeStopDraftFixed(draft);
+        setPlans((prev) => prev.map((item) => item.id !== planId ? item : { ...item, stops: sortStops([...(item.stops || []), normalized]) }));
+        return normalized;
+      },
+      addMemo: async (planId, stopId, text) => {
+        const plan = plansRef.current.find((item) => item.id === planId);
+        const stop = plan?.stops?.find((item) => item.id === stopId);
+        if (!plan || !stop) return null;
+        const memo = {
+          id: `memo-${Math.random().toString(36).slice(2, 9)}`,
+          text,
+          authorEmail: authUserRef.current?.email || "",
+          createdAt: new Date().toISOString(),
+        };
+        setPlans((prev) => prev.map((item) => item.id !== planId ? item : {
+          ...item,
+          stops: item.stops.map((target) => target.id !== stopId ? target : { ...target, memos: [...(Array.isArray(target.memos) ? target.memos : []), memo] }),
+        }));
+        return memo;
+      },
+    });
+  }, []);
   const hasSyncedInitialSelection = React.useRef(false);
   const hasLoadedRemotePlans = React.useRef(!firebaseEnabled);
   const lastSyncedPlansJson = React.useRef("");
