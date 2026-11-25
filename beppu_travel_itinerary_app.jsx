@@ -950,6 +950,13 @@ body {
   min-height: 92px;
   resize: vertical;
 }
+.ai-prompt {
+  font-size: 12px;
+  line-height: 1.6;
+  min-height: 180px;
+  resize: none;
+  margin-top: 6px;
+}
 .editor-note {
   font-size: 11px;
   color: var(--text2);
@@ -2716,6 +2723,25 @@ function SettingsSheet({ plans, selectedPlanId, authUser, firebaseStatus, onClos
   );
 }
 
+const AI_REGISTRATION_PROMPT = `TravelPlanner（旅行プランアプリ）のAI連携をお願いします。
+
+【接続先】
+MCPサーバー: https://travelplanner-relay.427harinn.workers.dev/mcp
+認証: OAuth（TravelPlannerのアカウントでログインします。認可画面が開いたら、私がログインして承認するので待ってください）
+
+【接続後にできること】
+・旅行プランの一覧表示と新規作成
+・予定の追加・編集・削除
+・予定へのメモの追加
+・編集者の招待・解除
+
+【予定を登録するときのルール】
+・場所は先に調べて、座標が確かな情報源で分かれば一緒に登録してください
+・GoogleマップのURLは、予定の表示名ではなく、その場所自体を検索するURLにしてください
+・座標が確かでない場合は、推測で入れず空欄にしてください
+
+まずプランの一覧を表示して、接続できているか確認してください。`;
+
 function PlannerSettingsSheet({
   plans,
   selectedPlan,
@@ -2734,6 +2760,27 @@ function PlannerSettingsSheet({
 }) {
   const [editorEmail, setEditorEmail] = useState("");
   const [shareLinkFeedback, setShareLinkFeedback] = useState("");
+  const [aiFeedback, setAiFeedback] = useState("");
+
+  async function handleCopyAiPrompt() {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      setAiFeedback("コピーできませんでした");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(AI_REGISTRATION_PROMPT);
+      setAiFeedback("コピーしました");
+    } catch (_error) {
+      setAiFeedback("コピーできませんでした");
+      return;
+    }
+
+    window.clearTimeout(handleCopyAiPrompt.timeoutId);
+    handleCopyAiPrompt.timeoutId = window.setTimeout(() => {
+      setAiFeedback("");
+    }, 2000);
+  }
 
   async function handleCopyShareLink() {
     if (!publicShareUrl || typeof navigator === "undefined" || !navigator.clipboard) {
@@ -2786,6 +2833,19 @@ function PlannerSettingsSheet({
                 </div>
                 <button className="editor-btn secondary" onClick={onSignOut}>Sign out</button>
               </div>
+            </div>
+          </div>
+
+          <div className="editor-field">
+            <label>AIに登録</label>
+            <div className="settings-account-sub">
+              AIアシスタントに旅行プランの登録や編集を頼めるようにする連携です。下の指示文をコピーして、AIに貼り付けてください。
+            </div>
+            <textarea className="editor-textarea ai-prompt" value={AI_REGISTRATION_PROMPT} readOnly rows={10} />
+            {aiFeedback ? <div className="settings-account-sub">{aiFeedback}</div> : null}
+            <div className="editor-actions">
+              <button className="editor-btn secondary" onClick={handleCopyAiPrompt}>指示文をコピー</button>
+              <div />
             </div>
           </div>
 
