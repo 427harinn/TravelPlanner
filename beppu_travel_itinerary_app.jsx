@@ -2142,6 +2142,9 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
   const [mapLocked, setMapLocked] = useState(false);
   const lockedRef = React.useRef(false);
   const mapInstanceRef = React.useRef(null);
+  const route = useMemo(() => stopsData.filter((stop) => hasCoords(stop)).map(s => s.id), [stopsData]);
+  const positions = useMemo(() => route.map(id => [spotMap[id].lat, spotMap[id].lng]), [route, spotMap]);
+
   if (!sel || stopsData.length === 0) {
     return (
       <div className="map-wrap">
@@ -2156,9 +2159,6 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
       </div>
     );
   }
-
-  const route = useMemo(() => stopsData.filter((stop) => hasCoords(stop)).map(s => s.id), [stopsData]);
-  const positions = useMemo(() => route.map(id => [spotMap[id].lat, spotMap[id].lng]), [route, spotMap]);
   const currentSpot = currentStopId ? spotMap[currentStopId] : null;
   const focusSpot = [currentSpot, sel, ...stopsData].find((stop) => hasCoords(stop)) || null;
   const mapCenter = focusSpot ? [focusSpot.lat, focusSpot.lng] : [35.6812, 139.7671];
