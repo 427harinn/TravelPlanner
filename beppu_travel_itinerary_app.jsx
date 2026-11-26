@@ -2856,6 +2856,9 @@ const AI_REGISTRATION_PROMPT = `TravelPlanner（旅行プランアプリ）のAI
 【接続先】
 MCPサーバー: https://travelplanner-relay.427harinn.workers.dev/mcp
 認証: OAuth（TravelPlannerのアカウントでログインします。認可画面が開いたら、私がログインして承認するので待ってください）
+OAuthクライアントID: travelplanner-muse
+クライアントシークレット: なし（公開クライアントです。PKCE S256 で接続してください）
+リダイレクトURI: https://agent.meta.ai/api/hatch/oauth/callback（登録済み）
 
 【接続後にできること】
 ・旅行プランの一覧表示と新規作成
