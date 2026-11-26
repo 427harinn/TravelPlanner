@@ -35,7 +35,7 @@ function summarizeStop(stop) {
     detail: stop.detail,
     access: stop.access || "",
     travelMinutes: stop.travelMinutes ?? null,
-    assignee: stop.assignee || null,
+    assignees: Array.isArray(stop.assignees) ? stop.assignees : stop.assignee ? [stop.assignee] : [],
     lat: stop.lat ?? null,
     lng: stop.lng ?? null,
     memos: Array.isArray(stop.memos) ? stop.memos : [],
@@ -43,10 +43,11 @@ function summarizeStop(stop) {
 }
 
 function isVisibleToViewer(stop, viewerEmail, includeOthersPersonal) {
-  const assignee = String(stop.assignee || "").trim().toLowerCase();
-  if (!assignee) return true;
+  const list = (Array.isArray(stop.assignees) ? stop.assignees : stop.assignee ? [stop.assignee] : [])
+    .map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+  if (list.length === 0) return true;
   const me = String(viewerEmail || "").toLowerCase();
-  if (me && assignee === me) return true;
+  if (me && list.includes(me)) return true;
   return Boolean(includeOthersPersonal);
 }
 
@@ -64,7 +65,7 @@ export function registerTravelPlannerTools(handlers) {
     },
     {
       name: "get_itinerary",
-      description: "指定したプランの旅程を返す。day を指定するとその日だけ返す。他の人の個人予定（assignee 付き）は初期状態で除かれ、includeOthersPersonal で含められる",
+      description: "指定したプランの旅程を返す。day を指定するとその日だけ返す。他の人の個人予定（assignees 付き）は初期状態で除かれ、includeOthersPersonal で含められる",
       inputSchema: {
         type: "object",
         properties: {
@@ -150,7 +151,8 @@ export function registerTravelPlannerTools(handlers) {
           detail: { type: "string" },
           access: { type: "string" },
           travelMinutes: { type: "number" },
-          assignee: { type: "string", description: "その予定の持ち主のメールアドレス。省略時は全員の予定" },
+          assignees: { type: "array", items: { type: "string" }, description: "その予定の持ち主のメールアドレス（複数可）。省略時は全員の予定" },
+          assignee: { type: "string", description: "assignees の単数形（互換用）" },
           placeQuery: { type: "string" },
         },
         required: ["planId", "name"],
@@ -238,7 +240,8 @@ export function registerTravelPlannerTools(handlers) {
           detail: { type: "string" },
           access: { type: "string" },
           travelMinutes: { type: "number" },
-          assignee: { type: "string", description: "その予定の持ち主のメールアドレス。\"all\" で全員の予定に戻す" },
+          assignees: { type: "array", items: { type: "string" }, description: "その予定の持ち主のメールアドレス（複数可）。空配列で全員の予定に戻す" },
+          assignee: { type: "string", description: "assignees の単数形（互換用）" },
           lat: { type: "number" },
           lng: { type: "number" },
           clearCoordinates: { type: "boolean" },

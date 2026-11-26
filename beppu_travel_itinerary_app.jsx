@@ -1374,7 +1374,7 @@ function EditorApp() {
           detail: args.detail || "",
           access: args.access || "",
           travelMinutes: Number.isFinite(args.travelMinutes) ? String(args.travelMinutes) : "",
-          assignee: typeof args.assignee === "string" && args.assignee !== "all" ? args.assignee : "",
+          assignees: Array.isArray(args.assignees) ? args.assignees : (typeof args.assignee === "string" && args.assignee !== "all" ? [args.assignee] : []),
           lat,
           lng,
         };
@@ -1440,7 +1440,9 @@ function EditorApp() {
         if (typeof args.detail === "string") draft.detail = args.detail;
         if (typeof args.access === "string") draft.access = args.access;
         if (Number.isFinite(args.travelMinutes)) draft.travelMinutes = String(args.travelMinutes);
-        if (typeof args.assignee === "string") draft.assignee = args.assignee === "all" ? "" : args.assignee;
+        if (args.assignees !== undefined || args.assignee !== undefined) {
+          draft.assignees = Array.isArray(args.assignees) ? args.assignees : (args.assignee === "all" ? [] : [args.assignee]);
+        }
         if (typeof args.mapUrl === "string") draft.mapUrl = args.mapUrl;
         if (typeof args.photoUrl === "string") draft.photoUrl = args.photoUrl;
         if (args.clearCoordinates === true) {
@@ -1628,7 +1630,7 @@ function EditorApp() {
 
     setDraft({
       ...createStopDraftFixed(null, 1),
-      assignee: (authUserRef.current?.email || "").toLowerCase(),
+      assignees: [(authUserRef.current?.email || "").toLowerCase()].filter(Boolean),
       category: "蜃ｺ逋ｺ",
       emoji: getCategoryEmojiFixed("\u51fa\u767a"),
       time: "09:00",
@@ -1751,7 +1753,7 @@ function EditorApp() {
     setSearchResults([]);
     setDraft({
       ...createStopDraftFixed(null, base?.day ?? 1),
-      assignee: myEmail,
+      assignees: myEmail ? [myEmail] : [],
       category: "蜃ｺ逋ｺ",
       emoji: getCategoryEmojiFixed("\u51fa\u767a"),
       time: "09:00",
@@ -1768,7 +1770,7 @@ function EditorApp() {
     setSheet(false);
     setGeoState({ loading: false, message: "" });
     setSearchResults([]);
-    setDraft({ ...createStopDraftFixed({ day: spot.day, lat: spot.lat, lng: spot.lng, category: "観光" }), assignee: myEmail });
+    setDraft({ ...createStopDraftFixed({ day: spot.day, lat: spot.lat, lng: spot.lng, category: "観光" }), assignees: myEmail ? [myEmail] : [] });
     setEditorMode("create");
   }
   function openEdit(id) {
@@ -2147,7 +2149,7 @@ function ShareApp() {
   const scrollRef = React.useRef(null);
   const hasSyncedInitialSelection = React.useRef(false);
   const now = useNowClock();
-  const stopsData = (plan?.stops || []).filter((stop) => !stopAssigneeValue(stop));
+  const stopsData = (plan?.stops || []).filter((stop) => stopAssigneesValue(stop).length === 0);
   const spotMap = useMemo(() => Object.fromEntries(stopsData.map((stop) => [stop.id, stop])), [stopsData]);
   const currentStopId = useMemo(() => getCurrentStopId(now, stopsData, plan?.startDate), [now, stopsData, plan?.startDate]);
   const currentStop = currentStopId ? spotMap[currentStopId] : null;
@@ -2502,6 +2504,10 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
       {stopsData.map((s, i) => {
         const prev = i > 0 ? stopsData[i - 1] : null;
         const showTravel = Boolean(prev && (s.travelMinutes || s.access));
+        const assignees = stopAssigneesValue(s);
+        const assigneeLabel = assignees.length > 0
+          ? `${assignees.map((e) => (e === String(viewerEmail || "").toLowerCase() ? "自分" : e.split("@")[0])).join("・")} の予定`
+          : "";
         const gap = prev ? stopAbsMinutes(s) - stopAbsMinutes(prev) : null;
         const tight = Boolean(showTravel && s.travelMinutes && gap !== null && gap >= 0 && gap < s.travelMinutes);
         return (
@@ -2518,9 +2524,9 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
                 <div className="li-row">
                   <span className="li-time">{formatStopDay(s)} {s.time}</span>
                   <span className={`li-chip${currentStopId === s.id ? " now" : ""}`} style={{ background: s.chip, color: s.chipText }}>{s.category}</span>
-                  {s.assignee ? (
+                  {assigneeLabel ? (
                     <span className="li-chip" style={{ background: "#e7e5e4", color: "#57534e" }}>
-                      {String(s.assignee).toLowerCase() === String(viewerEmail || "").toLowerCase() ? "自分の予定" : `${s.assignee} の予定`}
+                      {assigneeLabel}
                     </span>
                   ) : null}
                   {currentStopId === s.id ? <span className="now-badge">NOW</span> : null}
@@ -2550,7 +2556,7 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
           <div style={{ minWidth: 0, flex: 1 }}>
             <div className="sheet-tag">{spot.time} · {spot.category}</div>
             <div className="sheet-name">{spot.name}</div>
-            {spot.assignee ? <div className="sheet-tag">👤 {spot.assignee} の予定</div> : null}
+            {stopAssigneesValue(spot).length > 0 ? <div className="sheet-tag">👤 {stopAssigneesValue(spot).join("、")} の予定</div> : null}
           </div>
           <button className="btn-a secondary" style={{ padding: "6px 10px", fontSize: 12 }} onClick={onEdit}>✏️ 編集</button>
           <button className="sheet-x" onClick={onClose}>✕</button>
@@ -2723,12 +2729,33 @@ function EditorSheet({ mode, draft, assigneeOptions = [], onChange, onClose, onS
 
           <div className="editor-field">
             <label>誰の予定</label>
-            <select className="editor-input" value={draft.assignee || ""} onChange={(e) => onChange("assignee", e.target.value)}>
-              {assigneeOptions.map((option) => (
-                <option key={option.value || "all"} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <div className="settings-account-sub">人を選ぶと、その人の予定として登録され、他の人には初期表示されません（「全員の予定も表示」で見られます）。</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--text)", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={!Array.isArray(draft.assignees) || draft.assignees.length === 0}
+                  onChange={(e) => { if (e.target.checked) onChange("assignees", []); }}
+                />
+                全員（みんなの予定）
+              </label>
+              {assigneeOptions.filter((option) => option.value).map((option) => {
+                const checked = Array.isArray(draft.assignees) && draft.assignees.includes(option.value);
+                return (
+                  <label key={option.value} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--text)", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        const current = Array.isArray(draft.assignees) ? draft.assignees : [];
+                        onChange("assignees", e.target.checked ? [...current, option.value] : current.filter((v) => v !== option.value));
+                      }}
+                    />
+                    {option.label}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="settings-account-sub">人を選ぶと、その人たちの予定として登録され、他の人には初期表示されません（「全員の予定も表示」で見られます）。</div>
           </div>
 
           <div className="editor-field">
@@ -2920,7 +2947,7 @@ OAuthクライアントID: travelplanner-muse
 ・場所は先に調べて、座標が確かな情報源で分かれば一緒に登録してください
 ・GoogleマップのURLは、予定の表示名ではなく、その場所自体を検索するURLにしてください
 ・座標が確かでない場合は、推測で入れず空欄にしてください
-・人によって違う予定（飛行機など）は、assignee にその人のメールアドレスを指定してください。指定しない場合は全員の予定になり、個人の予定は他の人には初期表示されません
+・人によって違う予定（飛行機など）は、assignees にその人たちのメールアドレスを指定してください（複数可）。指定しない場合は全員の予定になり、個人の予定は他の人には初期表示されません
 
 まずプランの一覧を表示して、接続できているか確認してください。`;
 
@@ -3432,7 +3459,7 @@ function createStopDraft(base, forcedDay) {
     detail: base?.detail || "",
     access: base?.access || "",
     travelMinutes: base?.travelMinutes != null ? String(base.travelMinutes) : "",
-    assignee: base?.assignee || "",
+    assignees: stopAssigneesValue(base),
     mapUrl: base?.mapUrl || "",
     photoUrl: base?.photoUrl || "",
     lat: base?.lat != null ? String(base.lat) : "",
@@ -3482,7 +3509,8 @@ function normalizeStopDraft(draft, existingStop) {
     category: draft.category.trim() || "観光",
     short: draft.short.trim() || safeName,
     detail: draft.detail.trim() || "詳細未設定",
-    assignee: (draft.assignee || "").trim().toLowerCase() || null,
+    assignees: [...new Set((Array.isArray(draft.assignees) ? draft.assignees : []).map((e) => String(e).trim().toLowerCase()).filter(Boolean))],
+    assignee: null,
     mapUrl: draft.mapUrl.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeName)}`,
     photoUrl: draft.photoUrl.trim() || `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(safeName)}`,
     lat: Number.isFinite(lat) ? lat : null,
@@ -3561,7 +3589,7 @@ function createStopDraftFixed(base, forcedDay) {
     detail: base?.detail || "",
     access: base?.access || "",
     travelMinutes: base?.travelMinutes != null ? String(base.travelMinutes) : "",
-    assignee: base?.assignee || "",
+    assignees: stopAssigneesValue(base),
     mapUrl: base?.mapUrl || "",
     photoUrl: base?.photoUrl || "",
     lat: base?.lat != null ? String(base.lat) : "",
@@ -3588,7 +3616,8 @@ function normalizeStopDraftFixed(draft, existingStop) {
     detail: draft.detail.trim() || "",
     access: (draft.access || "").trim(),
     travelMinutes: (() => { const v = Number.parseInt(draft.travelMinutes, 10); return Number.isFinite(v) && v > 0 ? v : null; })(),
-    assignee: (draft.assignee || "").trim().toLowerCase() || null,
+    assignees: [...new Set((Array.isArray(draft.assignees) ? draft.assignees : []).map((e) => String(e).trim().toLowerCase()).filter(Boolean))],
+    assignee: null,
     mapUrl: draft.mapUrl.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeName)}`,
     photoUrl: draft.photoUrl.trim() || `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(safeName)}`,
     lat: Number.isFinite(lat) ? lat : null,
@@ -3610,16 +3639,16 @@ function samePlaceStops(stopsData, target) {
   );
 }
 
-function stopAssigneeValue(stop) {
-  const a = String(stop?.assignee || "").trim().toLowerCase();
-  return a || null;
+function stopAssigneesValue(stop) {
+  const list = Array.isArray(stop?.assignees) ? stop.assignees : stop?.assignee ? [stop.assignee] : [];
+  return [...new Set(list.map((e) => String(e).trim().toLowerCase()).filter(Boolean))];
 }
 
 function isStopVisibleForViewer(stop, viewerEmail, showAll) {
-  const a = stopAssigneeValue(stop);
-  if (!a) return true;
+  const list = stopAssigneesValue(stop);
+  if (list.length === 0) return true;
   const me = String(viewerEmail || "").toLowerCase();
-  if (me && a === me) return true;
+  if (me && list.includes(me)) return true;
   return Boolean(showAll);
 }
 
@@ -3638,7 +3667,8 @@ function hydratePlanDataFixed(plan) {
           lng: Number.isFinite(stop?.lng) ? stop.lng : null,
           access: typeof stop?.access === "string" ? stop.access : "",
           travelMinutes: Number.isFinite(stop?.travelMinutes) ? stop.travelMinutes : null,
-          assignee: stopAssigneeValue(stop),
+          assignees: stopAssigneesValue(stop),
+          assignee: null,
           memos: Array.isArray(stop?.memos) ? stop.memos : [],
         })))
       : [],
