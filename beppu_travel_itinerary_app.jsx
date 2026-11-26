@@ -1283,6 +1283,7 @@ function EditorApp() {
   const [editorMode, setEditorMode] = useState(null);
   const [draft, setDraft] = useState(() => createStopDraftFixed());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showAllPersonal, setShowAllPersonal] = useState(false);
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
   const [pendingCreatePlanId, setPendingCreatePlanId] = useState(null);
   const [planDraft, setPlanDraft] = useState(() => createPlanDraft());
@@ -1300,6 +1301,25 @@ function EditorApp() {
   }));
   const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) || plans[0];
   const stopsData = selectedPlan?.stops || [];
+  const myEmail = (authUser?.email || "").toLowerCase();
+  const visibleStopsData = useMemo(
+    () => stopsData.filter((stop) => isStopVisibleForViewer(stop, myEmail, showAllPersonal)),
+    [stopsData, myEmail, showAllPersonal],
+  );
+  const visibleSpotMap = useMemo(
+    () => Object.fromEntries(visibleStopsData.map((s) => [s.id, s])),
+    [visibleStopsData],
+  );
+  const assigneeOptions = useMemo(() => {
+    const options = [];
+    if (myEmail) options.push({ value: myEmail, label: `自分（${myEmail}）` });
+    options.push({ value: "", label: "全員" });
+    const members = [...new Set([selectedPlan?.ownerEmail || "", ...(selectedPlan?.editorEmails || [])].map((e) => String(e).toLowerCase()).filter(Boolean))];
+    for (const member of members) {
+      if (member !== myEmail) options.push({ value: member, label: member });
+    }
+    return options;
+  }, [myEmail, selectedPlan]);
   const spotMap = useMemo(() => Object.fromEntries(stopsData.map(s => [s.id, s])), [stopsData]);
   useBodyScrollLock(Boolean(sheet || editorMode || settingsOpen || planEditorOpen));
   const geocodeCache = React.useRef(new Map());
@@ -1311,6 +1331,7 @@ function EditorApp() {
   React.useEffect(() => {
     registerTravelPlannerTools({
       getPlans: () => plansRef.current,
+      getCurrentUserEmail: () => (authUserRef.current?.email || "").toLowerCase(),
       isLoggedIn: () => Boolean(authUserRef.current),
       createPlan: async ({ name, description, startDate, endDate, icon }) => {
         const normalizedPlan = {
@@ -1353,6 +1374,7 @@ function EditorApp() {
           detail: args.detail || "",
           access: args.access || "",
           travelMinutes: Number.isFinite(args.travelMinutes) ? String(args.travelMinutes) : "",
+          assignee: typeof args.assignee === "string" && args.assignee !== "all" ? args.assignee : "",
           lat,
           lng,
         };
@@ -1418,6 +1440,7 @@ function EditorApp() {
         if (typeof args.detail === "string") draft.detail = args.detail;
         if (typeof args.access === "string") draft.access = args.access;
         if (Number.isFinite(args.travelMinutes)) draft.travelMinutes = String(args.travelMinutes);
+        if (typeof args.assignee === "string") draft.assignee = args.assignee === "all" ? "" : args.assignee;
         if (typeof args.mapUrl === "string") draft.mapUrl = args.mapUrl;
         if (typeof args.photoUrl === "string") draft.photoUrl = args.photoUrl;
         if (args.clearCoordinates === true) {
@@ -1477,9 +1500,9 @@ function EditorApp() {
   const lastSyncedPlansJson = React.useRef("");
   const scrollRef = React.useRef(null);
   const now = useNowClock();
-  const currentStopId = useMemo(() => getCurrentStopId(now, stopsData, selectedPlan?.startDate), [now, stopsData, selectedPlan?.startDate]);
-  const currentStop = currentStopId ? spotMap[currentStopId] : null;
-  const sel = spotMap[selId] || stopsData[0] || null;
+  const currentStopId = useMemo(() => getCurrentStopId(now, visibleStopsData, selectedPlan?.startDate), [now, visibleStopsData, selectedPlan?.startDate]);
+  const currentStop = currentStopId ? visibleSpotMap[currentStopId] : null;
+  const sel = visibleSpotMap[selId] || visibleStopsData[0] || null;
   const tripDateLabel = useMemo(() => formatTripDateRange(selectedPlan), [selectedPlan]);
 
   useEffect(() => {
@@ -1605,6 +1628,7 @@ function EditorApp() {
 
     setDraft({
       ...createStopDraftFixed(null, 1),
+      assignee: (authUserRef.current?.email || "").toLowerCase(),
       category: "蜃ｺ逋ｺ",
       emoji: getCategoryEmojiFixed("\u51fa\u767a"),
       time: "09:00",
@@ -1727,6 +1751,7 @@ function EditorApp() {
     setSearchResults([]);
     setDraft({
       ...createStopDraftFixed(null, base?.day ?? 1),
+      assignee: myEmail,
       category: "蜃ｺ逋ｺ",
       emoji: getCategoryEmojiFixed("\u51fa\u767a"),
       time: "09:00",
@@ -1743,7 +1768,7 @@ function EditorApp() {
     setSheet(false);
     setGeoState({ loading: false, message: "" });
     setSearchResults([]);
-    setDraft(createStopDraftFixed({ day: spot.day, lat: spot.lat, lng: spot.lng, category: "観光" }));
+    setDraft({ ...createStopDraftFixed({ day: spot.day, lat: spot.lat, lng: spot.lng, category: "観光" }), assignee: myEmail });
     setEditorMode("create");
   }
   function openEdit(id) {
@@ -1983,8 +2008,8 @@ function EditorApp() {
           ) : null}
           <MapView
             planId={selectedPlanId}
-            stopsData={stopsData}
-            spotMap={spotMap}
+            stopsData={visibleStopsData}
+            spotMap={visibleSpotMap}
             selId={selId}
             currentStopId={currentStopId}
             onPick={setSelId}
@@ -1994,6 +2019,9 @@ function EditorApp() {
             onToggleSchedule={() => setScheduleOpen((prev) => !prev)}
             scheduleOpen={scheduleOpen}
             sel={sel}
+            viewerEmail={myEmail}
+            showAllPersonal={showAllPersonal}
+            onToggleShowAllPersonal={() => setShowAllPersonal((prev) => !prev)}
           />
         </div>
       </div>
@@ -2017,6 +2045,7 @@ function EditorApp() {
         <EditorSheet
           mode={editorMode}
           draft={draft}
+          assigneeOptions={assigneeOptions}
           onChange={handleDraftChange}
           onClose={closeEditor}
           onSave={saveDraft}
@@ -2118,7 +2147,7 @@ function ShareApp() {
   const scrollRef = React.useRef(null);
   const hasSyncedInitialSelection = React.useRef(false);
   const now = useNowClock();
-  const stopsData = plan?.stops || [];
+  const stopsData = (plan?.stops || []).filter((stop) => !stopAssigneeValue(stop));
   const spotMap = useMemo(() => Object.fromEntries(stopsData.map((stop) => [stop.id, stop])), [stopsData]);
   const currentStopId = useMemo(() => getCurrentStopId(now, stopsData, plan?.startDate), [now, stopsData, plan?.startDate]);
   const currentStop = currentStopId ? spotMap[currentStopId] : null;
@@ -2279,7 +2308,7 @@ function StatusScreen({ title, copy }) {
   );
 }
 
-function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onOpen, onFocusStop, onCreateStop, onToggleSchedule, scheduleOpen, sel, canEdit = true }) {
+function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onOpen, onFocusStop, onCreateStop, onToggleSchedule, scheduleOpen, sel, canEdit = true, viewerEmail = "", showAllPersonal = false, onToggleShowAllPersonal = null }) {
   const [mapLocked, setMapLocked] = useState(false);
   const [listFull, setListFull] = useState(false);
   const lockedRef = React.useRef(false);
@@ -2304,7 +2333,7 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
           </div>
         </div>
         <div className="list-full-scroll">
-          <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onPick} />
+          <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onPick} viewerEmail={viewerEmail} />
         </div>
       </div>
     );
@@ -2442,6 +2471,11 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
             予定一覧
             <span className="schedule-expand-hint">⤢</span>
           </button>
+          {onToggleShowAllPersonal ? (
+            <button className="schedule-action" style={{ padding: "8px 12px" }} onClick={onToggleShowAllPersonal}>
+              {showAllPersonal ? "全員の予定を表示中 ✓" : "全員の予定も表示"}
+            </button>
+          ) : null}
           {canEdit ? (
             <button className="schedule-action primary" style={{ padding: "8px 12px" }} onClick={onCreateStop}>
               ＋予定を追加
@@ -2450,7 +2484,7 @@ function MapView({ planId, stopsData, spotMap, selId, currentStopId, onPick, onO
         </div>
         <div className="schedule-list-scroll">
           <div className="schedule-body" style={{ borderTop: "none", paddingTop: 0 }}>
-            <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onFocusStop} compact />
+            <ListView stopsData={stopsData} selId={selId} currentStopId={currentStopId} onOpen={onOpen} onSelect={onFocusStop} compact viewerEmail={viewerEmail} />
           </div>
         </div>
       </div>
@@ -2462,7 +2496,7 @@ function stopAbsMinutes(stop) {
   return (Math.max(1, stop.day || 1) - 1) * 1440 + timeToMinutes(stop.time || "0:00");
 }
 
-function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact = false }) {
+function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact = false, viewerEmail = "" }) {
   return (
     <div className={compact ? "" : "list-wrap"}>
       {stopsData.map((s, i) => {
@@ -2484,6 +2518,11 @@ function ListView({ stopsData, selId, currentStopId, onOpen, onSelect, compact =
                 <div className="li-row">
                   <span className="li-time">{formatStopDay(s)} {s.time}</span>
                   <span className={`li-chip${currentStopId === s.id ? " now" : ""}`} style={{ background: s.chip, color: s.chipText }}>{s.category}</span>
+                  {s.assignee ? (
+                    <span className="li-chip" style={{ background: "#e7e5e4", color: "#57534e" }}>
+                      {String(s.assignee).toLowerCase() === String(viewerEmail || "").toLowerCase() ? "自分の予定" : `${s.assignee} の予定`}
+                    </span>
+                  ) : null}
                   {currentStopId === s.id ? <span className="now-badge">NOW</span> : null}
                 </div>
                 <div className="li-name">{s.name}</div>
@@ -2511,6 +2550,7 @@ function Sheet({ spot, onClose, onEdit, canEdit = true, onAddMemo = null, memoEr
           <div style={{ minWidth: 0, flex: 1 }}>
             <div className="sheet-tag">{spot.time} · {spot.category}</div>
             <div className="sheet-name">{spot.name}</div>
+            {spot.assignee ? <div className="sheet-tag">👤 {spot.assignee} の予定</div> : null}
           </div>
           <button className="btn-a secondary" style={{ padding: "6px 10px", fontSize: 12 }} onClick={onEdit}>✏️ 編集</button>
           <button className="sheet-x" onClick={onClose}>✕</button>
@@ -2628,7 +2668,7 @@ function ShareEditHelpSheet({ ownerEmail, onClose }) {
   );
 }
 
-function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDelete, onSearchPlace, onApplySearchResult, geoState, searchResults }) {
+function EditorSheet({ mode, draft, assigneeOptions = [], onChange, onClose, onSave, onDelete, canDelete, onSearchPlace, onApplySearchResult, geoState, searchResults }) {
   return (
     <div className="editor-backdrop" onClick={onClose}>
       <div className="editor" onClick={(e) => e.stopPropagation()}>
@@ -2679,6 +2719,16 @@ function EditorSheet({ mode, draft, onChange, onClose, onSave, onDelete, canDele
               <label>一言説明</label>
               <input className="editor-input" value={draft.short} onChange={(e) => onChange("short", e.target.value)} />
             </div>
+          </div>
+
+          <div className="editor-field">
+            <label>誰の予定</label>
+            <select className="editor-input" value={draft.assignee || ""} onChange={(e) => onChange("assignee", e.target.value)}>
+              {assigneeOptions.map((option) => (
+                <option key={option.value || "all"} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <div className="settings-account-sub">人を選ぶと、その人の予定として登録され、他の人には初期表示されません（「全員の予定も表示」で見られます）。</div>
           </div>
 
           <div className="editor-field">
@@ -2870,6 +2920,7 @@ OAuthクライアントID: travelplanner-muse
 ・場所は先に調べて、座標が確かな情報源で分かれば一緒に登録してください
 ・GoogleマップのURLは、予定の表示名ではなく、その場所自体を検索するURLにしてください
 ・座標が確かでない場合は、推測で入れず空欄にしてください
+・人によって違う予定（飛行機など）は、assignee にその人のメールアドレスを指定してください。指定しない場合は全員の予定になり、個人の予定は他の人には初期表示されません
 
 まずプランの一覧を表示して、接続できているか確認してください。`;
 
@@ -3381,6 +3432,7 @@ function createStopDraft(base, forcedDay) {
     detail: base?.detail || "",
     access: base?.access || "",
     travelMinutes: base?.travelMinutes != null ? String(base.travelMinutes) : "",
+    assignee: base?.assignee || "",
     mapUrl: base?.mapUrl || "",
     photoUrl: base?.photoUrl || "",
     lat: base?.lat != null ? String(base.lat) : "",
@@ -3430,6 +3482,7 @@ function normalizeStopDraft(draft, existingStop) {
     category: draft.category.trim() || "観光",
     short: draft.short.trim() || safeName,
     detail: draft.detail.trim() || "詳細未設定",
+    assignee: (draft.assignee || "").trim().toLowerCase() || null,
     mapUrl: draft.mapUrl.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeName)}`,
     photoUrl: draft.photoUrl.trim() || `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(safeName)}`,
     lat: Number.isFinite(lat) ? lat : null,
@@ -3508,6 +3561,7 @@ function createStopDraftFixed(base, forcedDay) {
     detail: base?.detail || "",
     access: base?.access || "",
     travelMinutes: base?.travelMinutes != null ? String(base.travelMinutes) : "",
+    assignee: base?.assignee || "",
     mapUrl: base?.mapUrl || "",
     photoUrl: base?.photoUrl || "",
     lat: base?.lat != null ? String(base.lat) : "",
@@ -3534,6 +3588,7 @@ function normalizeStopDraftFixed(draft, existingStop) {
     detail: draft.detail.trim() || "",
     access: (draft.access || "").trim(),
     travelMinutes: (() => { const v = Number.parseInt(draft.travelMinutes, 10); return Number.isFinite(v) && v > 0 ? v : null; })(),
+    assignee: (draft.assignee || "").trim().toLowerCase() || null,
     mapUrl: draft.mapUrl.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeName)}`,
     photoUrl: draft.photoUrl.trim() || `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(safeName)}`,
     lat: Number.isFinite(lat) ? lat : null,
@@ -3555,6 +3610,19 @@ function samePlaceStops(stopsData, target) {
   );
 }
 
+function stopAssigneeValue(stop) {
+  const a = String(stop?.assignee || "").trim().toLowerCase();
+  return a || null;
+}
+
+function isStopVisibleForViewer(stop, viewerEmail, showAll) {
+  const a = stopAssigneeValue(stop);
+  if (!a) return true;
+  const me = String(viewerEmail || "").toLowerCase();
+  if (me && a === me) return true;
+  return Boolean(showAll);
+}
+
 function hydratePlanDataFixed(plan) {
   return {
     ...plan,
@@ -3570,6 +3638,7 @@ function hydratePlanDataFixed(plan) {
           lng: Number.isFinite(stop?.lng) ? stop.lng : null,
           access: typeof stop?.access === "string" ? stop.access : "",
           travelMinutes: Number.isFinite(stop?.travelMinutes) ? stop.travelMinutes : null,
+          assignee: stopAssigneeValue(stop),
           memos: Array.isArray(stop?.memos) ? stop.memos : [],
         })))
       : [],

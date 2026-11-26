@@ -35,10 +35,19 @@ function summarizeStop(stop) {
     detail: stop.detail,
     access: stop.access || "",
     travelMinutes: stop.travelMinutes ?? null,
+    assignee: stop.assignee || null,
     lat: stop.lat ?? null,
     lng: stop.lng ?? null,
     memos: Array.isArray(stop.memos) ? stop.memos : [],
   };
+}
+
+function isVisibleToViewer(stop, viewerEmail, includeOthersPersonal) {
+  const assignee = String(stop.assignee || "").trim().toLowerCase();
+  if (!assignee) return true;
+  const me = String(viewerEmail || "").toLowerCase();
+  if (me && assignee === me) return true;
+  return Boolean(includeOthersPersonal);
 }
 
 export function registerTravelPlannerTools(handlers) {
@@ -55,19 +64,24 @@ export function registerTravelPlannerTools(handlers) {
     },
     {
       name: "get_itinerary",
-      description: "指定したプランの旅程を返す。day を指定するとその日だけ返す",
+      description: "指定したプランの旅程を返す。day を指定するとその日だけ返す。他の人の個人予定（assignee 付き）は初期状態で除かれ、includeOthersPersonal で含められる",
       inputSchema: {
         type: "object",
         properties: {
           planId: { type: "string" },
           day: { type: "number" },
+          includeOthersPersonal: { type: "boolean" },
         },
         required: ["planId"],
       },
-      execute: async ({ planId, day }) => {
+      execute: async ({ planId, day, includeOthersPersonal }) => {
         const plan = handlers.getPlans().find((item) => item.id === planId);
         if (!plan) return textResult(`plan not found: ${planId}`);
-        const stops = (plan.stops || []).filter((stop) => !day || stop.day === day).map(summarizeStop);
+        const me = handlers.getCurrentUserEmail ? handlers.getCurrentUserEmail() : "";
+        const stops = (plan.stops || [])
+          .filter((stop) => isVisibleToViewer(stop, me, includeOthersPersonal))
+          .filter((stop) => !day || stop.day === day)
+          .map(summarizeStop);
         return textResult({ ...summarizePlan(plan), stops });
       },
     },
@@ -81,13 +95,15 @@ export function registerTravelPlannerTools(handlers) {
           lat: { type: "number" },
           lng: { type: "number" },
           placeName: { type: "string" },
+          includeOthersPersonal: { type: "boolean" },
         },
         required: ["planId"],
       },
-      execute: async ({ planId, lat, lng, placeName }) => {
+      execute: async ({ planId, lat, lng, placeName, includeOthersPersonal }) => {
         const plan = handlers.getPlans().find((item) => item.id === planId);
         if (!plan) return textResult(`plan not found: ${planId}`);
-        let stops = plan.stops || [];
+        const me = handlers.getCurrentUserEmail ? handlers.getCurrentUserEmail() : "";
+        let stops = (plan.stops || []).filter((stop) => isVisibleToViewer(stop, me, includeOthersPersonal));
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
           stops = stops.filter(
             (stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lng)
@@ -134,6 +150,7 @@ export function registerTravelPlannerTools(handlers) {
           detail: { type: "string" },
           access: { type: "string" },
           travelMinutes: { type: "number" },
+          assignee: { type: "string", description: "その予定の持ち主のメールアドレス。省略時は全員の予定" },
           placeQuery: { type: "string" },
         },
         required: ["planId", "name"],
@@ -221,6 +238,7 @@ export function registerTravelPlannerTools(handlers) {
           detail: { type: "string" },
           access: { type: "string" },
           travelMinutes: { type: "number" },
+          assignee: { type: "string", description: "その予定の持ち主のメールアドレス。\"all\" で全員の予定に戻す" },
           lat: { type: "number" },
           lng: { type: "number" },
           clearCoordinates: { type: "boolean" },
